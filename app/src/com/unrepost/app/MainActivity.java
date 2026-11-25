@@ -37,6 +37,9 @@ public class MainActivity extends Activity {
     private static final int C_OK = 0xFF34D399;
 
     private TextView statusDot;
+    private Button scanButton;
+    private boolean pendingEnableConfirm;
+    private final android.os.Handler handler = new android.os.Handler(android.os.Looper.getMainLooper());
     private TextView statusText;
     private Button enableButton;
     private TextView statsText;
@@ -54,6 +57,16 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         refresh();
+        if (pendingEnableConfirm) {
+            if (isAccessibilityServiceEnabled()) {
+                pendingEnableConfirm = false;
+                Prefs.get(this).edit().putBoolean(Prefs.KEY_ENABLED, true).apply();
+                refresh();
+            } else {
+                // tampilkan jendela izin sistem bila belum diketuk
+                handler.postDelayed(this::showPendingEnableDialog, 350L);
+            }
+        }
     }
 
     // -------------------------------------------------------------------- UI
@@ -131,7 +144,7 @@ public class MainActivity extends Activity {
         card.addView(hint, matchWrap());
 
         enableButton = new Button(this);
-        enableButton.setText("Buka pengaturan aksesibilitas");
+        enableButton.setText("Aktifkan (1 ketukan)");
         enableButton.setAllCaps(false);
         enableButton.setTextColor(Color.parseColor("#0B0B0F"));
         enableButton.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f);
@@ -140,6 +153,18 @@ public class MainActivity extends Activity {
         enableButton.setPadding(dp(16), dp(12), dp(16), dp(12));
         enableButton.setOnClickListener(v -> openAccessibilitySettings());
         card.addView(enableButton, matchWrap());
+
+        scanButton = new Button(this);
+        scanButton.setText("Pindai layar sekarang");
+        scanButton.setAllCaps(false);
+        scanButton.setTextColor(C_CYAN);
+        scanButton.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f);
+        scanButton.setBackground(roundedStroke(C_CARD, C_CYAN, 14));
+        scanButton.setPadding(dp(16), dp(12), dp(16), dp(12));
+        LinearLayout.LayoutParams sbLp = matchWrap();
+        sbLp.topMargin = dp(10);
+        scanButton.setOnClickListener(v -> scanNow());
+        card.addView(scanButton, sbLp);
 
         Button openTikTok = new Button(this);
         openTikTok.setText("Buka TikTok");
@@ -332,15 +357,15 @@ public class MainActivity extends Activity {
         if (running && enabled) {
             statusDot.setTextColor(getColor(R.color.ok));
             statusText.setText("Aktif \u2014 memantau TikTok");
-            enableButton.setText("Penyaring aktif");
+            enableButton.setText("Jeda penyaring");
         } else if (a11yOn) {
             statusDot.setTextColor(getColor(R.color.cyan));
-            statusText.setText(enabled ? "Layanan aktif" : "Izin ada, penyaring dimatikan");
-            enableButton.setText(enabled ? "Penyaring aktif" : "Aktifkan penyaring");
+            statusText.setText(enabled ? "Layanan aktif" : "Izin ada, penyaring dijeda");
+            enableButton.setText(enabled ? "Jeda penyaring" : "Nyalakan penyaring");
         } else {
             statusDot.setTextColor(getColor(R.color.pink));
-            statusText.setText("Belum aktif");
-            enableButton.setText("Buka pengaturan aksesibilitas");
+            statusText.setText("Belum aktif \u00b7 butuh 1 izin");
+            enableButton.setText("Aktifkan (1 ketukan)");
         }
 
         int todaySeen = Prefs.todaySeen(this);
@@ -386,29 +411,92 @@ public class MainActivity extends Activity {
         Toast.makeText(this, "TikTok belum terpasang di perangkat ini", Toast.LENGTH_LONG).show();
     }
 
+    /**
+     * Aktivasi sependek mungkin:
+     *  1. jika izin aksesibilitas sudah ada -> cukup nyalakan penyaring (instan)
+     *  2. jika belum -> buka HALAMAN Unrepost di Setelan Aksesibilitas (bukan daftar
+     *     panjang), lalu tampilkan jendela izin sistem yang sudah diketuk "Izinkan"
+     *     begitu Anda kembali ke aplikasi ini. Itu batas maksimum yang diizinkan
+     *     Android: aplikasi tidak boleh mengaktifkan aksesibilitasnya sendiri.
+     */
     private void openAccessibilitySettings() {
-        if (UnrepostService.isRunning() && Prefs.filterEnabled(this)) {
-            // sudah aktif: tombol berfungsi sebagai toggle penyaring
+        boolean running = UnrepostService.isRunning();
+        boolean enabled = Prefs.filterEnabled(this);
+
+        if (running && enabled) {
             Prefs.get(this).edit().putBoolean(Prefs.KEY_ENABLED, false).apply();
-            Toast.makeText(this, "Penyaring dimatikan", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Penyaring dijeda \u2014 tombol ini untuk menyalakan lagi",
+                    Toast.LENGTH_SHORT).show();
             refresh();
             return;
         }
-        if (isAccessibilityServiceEnabled()) {
+        if (isAccessibilityServiceEnabled() || running) {
             Prefs.get(this).edit().putBoolean(Prefs.KEY_ENABLED, true).apply();
-            Toast.makeText(this, "Penyaring diaktifkan", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Penyaring aktif \u2014 buka TikTok", Toast.LENGTH_SHORT).show();
             refresh();
             return;
         }
+
+        // Belum ada izin: buka halaman detail layanan Unrepost sedekat mungkin.
+        if (!openServiceDetailsPage()) {
+            try {
+                Intent i = new Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS);
+                i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(i);
+            } catch (Exception e) {
+                Toast.makeText(this, "Buka Setelan \u2192 Aksesibilitas secara manual",
+                        Toast.LENGTH_LONG).show();
+                return;
+            }
+        }
+        Toast.makeText(this, "Ketuk \"Unrepost\" \u2192 Izinkan. Selesai.", Toast.LENGTH_LONG).show();
+    }
+
+    /** Coba buka halaman detail layanan (beberapa OEM mendukung, sebagian tidak). */
+    private boolean openServiceDetailsPage() {
         try {
-            Intent i = new Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS);
+            Intent i = new Intent("android.settings.ACCESSIBILITY_DETAILS_SETTINGS");
+            i.setData(android.net.Uri.parse("package:" + getPackageName()));
             i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             startActivity(i);
-            Toast.makeText(this, "Cari \"Unrepost\" lalu aktifkan", Toast.LENGTH_LONG).show();
-        } catch (Exception e) {
-            Toast.makeText(this, "Buka Setelan \u2192 Aksesibilitas secara manual",
-                    Toast.LENGTH_LONG).show();
+            return true;
+        } catch (Exception ignored) {
+            return false;
         }
+    }
+
+    /**
+     * Setelah pengguna memberi izin di Setelan, jendela izin sistem yang belum
+     * diketuk akan ditampilkan otomatis di sini (perilaku standar Android).
+     */
+    private void showPendingEnableDialog() {
+        try {
+            Intent i = new Intent("android.settings.ACCESSIBILITY_DETAILS_SETTINGS");
+            i.setData(android.net.Uri.parse("package:" + getPackageName()));
+            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(i);
+        } catch (Exception ignored) {
+            // perangkat ini tidak punya halaman detail; izin sudah cukup
+        }
+    }
+
+    /** Tombol "Pindai layar sekarang": minta layanan membaca layar yang sedang tampil. */
+    private void scanNow() {
+        if (!UnrepostService.isRunning()) {
+            Toast.makeText(this, "Aktifkan izin aksesibilitas dulu", Toast.LENGTH_SHORT).show();
+            openAccessibilitySettings();
+            return;
+        }
+        int score = UnrepostService.scanNow();
+        if (score < 0) {
+            Toast.makeText(this, "Layar tidak bisa dibaca sekarang \u2014 buka TikTok dulu, "
+                    + "lalu tekan lagi", Toast.LENGTH_LONG).show();
+            return;
+        }
+        Toast.makeText(this, score >= Prefs.threshold(this)
+                ? "Repost terdeteksi (skor " + score + ")"
+                : "Bukan repost (skor " + score + ")", Toast.LENGTH_SHORT).show();
+        scanButton.setText("Pindai layar sekarang \u00b7 skor " + score);
     }
 
     // ------------------------------------------------------------ view utils

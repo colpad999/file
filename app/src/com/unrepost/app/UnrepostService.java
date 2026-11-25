@@ -53,10 +53,13 @@ public class UnrepostService extends AccessibilityService {
     private static final long BADGE_MS = 2600L;
 
     private static volatile UnrepostService instance;
+    /** Konteks aksesibilitas aktif, dipakai untuk pemindaian manual dari UI aplikasi. */
+    private static volatile android.content.Context overlayContext;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Set<String> handledSignatures = new HashSet<>();
 
+    private long lastEventAt;
     private long lastRunAt;
     private long lastGestureAt;
     private String lastSignature = "";
@@ -75,10 +78,33 @@ public class UnrepostService extends AccessibilityService {
         return instance != null;
     }
 
+    /**
+     * Pindai layar TikTok saat ini tanpa menunggu event (dipakai tombol
+     * "Pindai layar sekarang"). Mengembalikan skor, atau -1 jika tidak bisa.
+     */
+    public static int scanNow() {
+        UnrepostService s = instance;
+        if (s == null) {
+            return -1;
+        }
+        try {
+            return s.scanOnce(false);
+        } catch (Exception e) {
+            return -1;
+        }
+    }
+
+    /** true jika ada event TikTok dalam 3 detik terakhir (TikTok terlihat di layar). */
+    public static boolean tiktokVisibleRecently() {
+        UnrepostService s = instance;
+        return s != null && System.currentTimeMillis() - s.lastEventAt < 3000L;
+    }
+
     @Override
     protected void onServiceConnected() {
         super.onServiceConnected();
         instance = this;
+        overlayContext = this;
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
         // Aktifkan penyaring otomatis saat izin aksesibilitas baru diberikan.
         android.content.SharedPreferences sp = Prefs.get(this);
@@ -90,6 +116,7 @@ public class UnrepostService extends AccessibilityService {
     @Override
     public boolean onUnbind(android.content.Intent intent) {
         instance = null;
+        overlayContext = null;
         removeBadge();
         return super.onUnbind(intent);
     }
@@ -97,6 +124,7 @@ public class UnrepostService extends AccessibilityService {
     @Override
     public void onDestroy() {
         instance = null;
+        overlayContext = null;
         removeBadge();
         super.onDestroy();
     }
@@ -114,6 +142,7 @@ public class UnrepostService extends AccessibilityService {
         if (!isTikTok(event.getPackageName())) {
             return;
         }
+        lastEventAt = System.currentTimeMillis();
         int type = event.getEventType();
         if (type != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
                 && type != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED
@@ -125,40 +154,50 @@ public class UnrepostService extends AccessibilityService {
             return;
         }
         lastRunAt = now;
-        handler.postDelayed(this::scan, 180L);
+        handler.post(() -> scanOnce(false));
     }
 
-    private void scan() {
-        if (!Prefs.filterEnabled(this)) {
-            return;
+    /**
+     * Baca layar aktif dan nilai apakah video yang tampil adalah repost.
+     *
+     * @param manual true bila dipicu tombol di aplikasi (badge tetap muncul meski
+     *               penyaring sedang dijeda, dan hasil dikembalikan ke pemanggil)
+     * @return skor repost (0..), atau -1 bila layar tidak bisa dibaca
+     */
+    int scanOnce(boolean manual) {
+        if (!manual && !Prefs.filterEnabled(this)) {
+            return -1;
         }
         AccessibilityNodeInfo root;
         try {
             root = getRootInActiveWindow();
         } catch (Exception e) {
-            return;
+            return -1;
         }
         if (root == null) {
-            return;
+            return -1;
         }
         busy = true;
         try {
             List<String> lines = new ArrayList<>();
             collect(root, lines, 0, new int[]{0});
             if (lines.isEmpty()) {
-                return;
+                return -1;
             }
             String joined = join(lines);
             RepostDetector.Result result =
                     RepostDetector.analyze(joined, Prefs.threshold(this));
+            if (manual) {
+                showBadge(result);
+            }
             if (!result.isRepost || result.signature.isEmpty()) {
-                return;
+                return result.score;
             }
             long now = System.currentTimeMillis();
             boolean sameScreen = result.signature.equals(lastSignature)
                     && now - lastSignatureAt < SAME_SCREEN_SUPPRESS_MS;
             if (sameScreen) {
-                return;
+                return result.score;
             }
             lastSignature = result.signature;
             lastSignatureAt = now;
@@ -166,11 +205,13 @@ public class UnrepostService extends AccessibilityService {
             Prefs.noteDetected(this, result.signature, result.title);
             showBadge(result);
 
-            if (Prefs.autoSkip(this) && !hasBlockingUi(lines)) {
+            if (!manual && Prefs.autoSkip(this) && !hasBlockingUi(lines)) {
                 maybeSwipe();
             }
+            return result.score;
         } catch (Exception ignored) {
             // Layanan aksesibilitas tidak boleh crash karena satu layar aneh.
+            return -1;
         } finally {
             busy = false;
         }
@@ -222,7 +263,13 @@ public class UnrepostService extends AccessibilityService {
                 bg.setStroke(dp(1), 0xFFFE2C55);
                 badge.setBackground(bg);
             }
-            badge.setText("\u26D4  Repost terdeteksi \u00b7 skor " + result.score);
+            if (result.isRepost) {
+                badge.setText("\u26D4  Repost terdeteksi \u00b7 skor " + result.score);
+                badge.setTextColor(0xFFFFFFFF);
+            } else {
+                badge.setText("\u2713  Bukan repost \u00b7 skor " + result.score);
+                badge.setTextColor(0xFF34D399);
+            }
 
             if (!badgeAdded) {
                 WindowManager.LayoutParams lp = new WindowManager.LayoutParams(

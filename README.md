@@ -1,6 +1,6 @@
 # Unrepost — penyaring video repost TikTok (APK Android)
 
-APK Android ringan (**±109 KB**, tanpa iklan, tanpa server, tanpa library pihak ketiga) yang
+APK Android ringan (**±113 KB**, tanpa iklan, tanpa server, tanpa library pihak ketiga) yang
 memantau layar TikTok dan **menandai video repost / re-upload** — yaitu video yang bukan milik
 akun yang mengunggahnya (caption "repost", "credit: @...", "not mine", "ctto", "bukan video
 saya", dan sejenisnya). Opsional: video seperti itu **dilewati otomatis** (swipe ke video
@@ -10,21 +10,30 @@ berikutnya).
 > (sideload). Aplikasi tidak mengunduh video, tidak menghapus watermark, tidak login, dan tidak
 > mengirim data apa pun ke internet. Semua analisis dilakukan di perangkat.
 
-## 📦 Unduh
+## 📦 Unduh APK (langsung, bukan lewat Actions)
 
 | Berkas | Keterangan |
 |---|---|
-| [`dist/unrepost-debug.apk`](dist/unrepost-debug.apk) | APK siap instal (ditandatangani keystore debug, v1+v2+v3) |
+| [`dist/unrepost-debug.apk`](dist/unrepost-debug.apk) | **APK siap instal — klik lalu tombol Download** (v1.1, 113 KB, signed v1+v2+v3) |
 
-Pasang di Android 7.0+ (minSdk 24). Cara pasang:
+APK ini sudah jadi dan tersimpan di repo, jadi **tidak perlu** menunggu atau menjalankan
+GitHub Actions. (Workflow Actions hanya untuk membangun ulang otomatis jika kode diubah.)
 
-1. Pindahkan `unrepost-debug.apk` ke HP (WhatsApp/Drive/kabel USB).
-2. Buka filenya → izinkan **"Instal dari sumber tidak dikenal"** untuk aplikasi yang membuka
-   APK tersebut (File Manager / Chrome).
-3. Buka **Unrepost** → tombol **"Buka pengaturan aksesibilitas"**.
-4. Di *Setelan → Aksesibilitas → Aplikasi terinstal* (atau *Layanan yang diunduh*), pilih
-   **Unrepost** → aktifkan. Penyaring langsung menyala.
-5. Kembali ke Unrepost → tekan **"Buka TikTok"**.
+### Pemasangan + aktivasi (2 ketukan setelah instal)
+
+1. Buka `dist/unrepost-debug.apk` di HP → **Download** → buka filenya → izinkan
+   **"Instal dari sumber tidak dikenal"** (untuk File Manager/Chrome).
+2. Buka **Unrepost** → ketuk **"Aktifkan (1 ketukan)"** → halaman *Setelan → Aksesibilitas →
+   Unrepost* langsung terbuka → ketuk **Unrepost** → **Izinkan**.
+3. Kembali ke Unrepost → ketuk **"Buka TikTok"**. Penyaring langsung memantau feed.
+4. Di TikTok, ketuk **"Pindai layar sekarang"** di Unrepost (atau buka-tutup cepat) untuk memaksa
+   pemeriksaan video yang sedang tampil — badge ⛔ / ✓ muncul di atas video.
+
+> **Kenapa izin Aksesibilitas tidak bisa dilewati?** Itu izin sistem paling sensitif di Android:
+> hanya pengguna yang boleh mengaktifkannya, aplikasi (termasuk APK ini) secara sengaja
+> **tidak diizinkan** menyalakannya sendiri — kalau bisa, itu namanya malware. Jadi maksimum
+> yang bisa dilakukan aplikasi adalah membuka halaman izin yang tepat + menampilkan jendela
+> "Izinkan" sistem. Selain itu, tanpa izin ini tidak ada cara membaca caption TikTok sama sekali.
 
 ## ✨ Fitur
 
@@ -37,6 +46,8 @@ Pasang di Android 7.0+ (minSdk 24). Cara pasang:
   menggeser bila terdeteksi sheet komentar / dialog bagikan sedang terbuka.
 - **Riwayat repost** — sidik jari (fingerprint) caption + judul + waktu; anti-duplikat, maks 300.
 - **Statistik harian & total** — repost terdeteksi vs dilewati.
+- **Pindai layar sekarang** — tombol untuk memaksa pemeriksaan layar yang sedang tampil
+  (badge ⛔ repost / ✓ aman + skornya), tanpa menunggu event.
 - **Uji deteksi lokal** — tempel caption dan lihat skor serta alasan penilaiannya.
 - **Privasi** — tidak ada akses internet sama sekali (tidak ada izin `INTERNET` di manifest).
 
@@ -86,6 +97,7 @@ bash tools/build-apk.sh --release   # keystore sendiri di keys/ → dist/unrepos
 
 **GitHub Actions**: `.github/workflows/build-apk.yml` menjalankan test + build dan mengunggah
 artifact APK pada setiap push ke `main` (atau lewat *Run workflow*).
+Ini **opsional** — APK final sudah tersedia di `dist/` dan bisa diunduh langsung dari repo.
 
 ## 🗂 Struktur
 
