@@ -1,0 +1,6 @@
+plugins {
+    id 'com.android.application' version '8.5.2' apply false
+}
+
+// Root build file. Proyek ini juga bisa di-build tanpa Gradle:
+//   tools/build-apk.sh

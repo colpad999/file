@@ -1,0 +1,8 @@
+# toolchain & temp build (diunduh ulang oleh tools/fetch-toolchain.sh)
+.work/
+build/
+*.iml
+.gradle/
+local.properties
+keys/
+*.jks

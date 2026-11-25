@@ -1,0 +1,43 @@
+android {
+    namespace 'com.unrepost.app'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.unrepost.app"
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+    }
+
+    // Struktur folder asli proyek (dipakai juga oleh tools/build-apk.sh).
+    sourceSets {
+        main {
+            manifest.srcFile 'AndroidManifest.xml'
+            java.srcDirs = ['src']
+            res.srcDirs = ['res']
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            // APK release memakai keystore sendiri; lihat README bagian Rilis.
+            signingConfig signingConfigs.debug
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+
+    lint {
+        abortOnError false
+    }
+}
+
+// Tidak ada dependensi eksternal: aplikasi ini murni Android SDK.
+dependencies { }

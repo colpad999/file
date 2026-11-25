@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Unrepost</string>
+    <string name="service_label">Unrepost — penyaring repost TikTok</string>
+    <string name="service_description">Unrepost membaca teks di layar TikTok untuk mengenali video repost / re-upload (tanpa kredit ke kreator asli), lalu melewatinya atau menandainya. Semua analisis dilakukan di perangkat Anda; tidak ada data yang dikirim ke server.</string>
+    <string name="history_title">Riwayat Repost</string>
+</resources>
