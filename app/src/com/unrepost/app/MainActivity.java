@@ -110,7 +110,72 @@ public class MainActivity extends Activity {
         titleBox.addView(sub, matchWrap());
         head.addView(titleBox, matchWrap());
         root.addView(head, matchWrap());
-        root.addView(space(22));
+        root.addView(space(18));
+
+        // Pintu utama: hapus repost otomatis di akun sendiri
+        LinearLayout clean = card();
+        GradientDrawable cleanBg = roundedStroke(C_CARD, C_PINK, 18);
+        clean.setBackground(cleanBg);
+        root.addView(clean, matchWrap());
+
+        TextView cleanLabel = label("FITUR UTAMA");
+        clean.addView(cleanLabel);
+
+        TextView cleanTitle = new TextView(this);
+        cleanTitle.setText("Bersihkan Repost");
+        cleanTitle.setTextSize(TypedValue.COMPLEX_UNIT_SP, 19f);
+        cleanTitle.setTypeface(Typeface.DEFAULT_BOLD);
+        cleanTitle.setTextColor(C_TEXT);
+        cleanTitle.setPadding(0, dp(6), 0, 0);
+        clean.addView(cleanTitle);
+
+        TextView cleanDesc = new TextView(this);
+        cleanDesc.setText("Hapus repost di profil TikTok Anda secara otomatis \u2014 satu video "
+                + "per jeda, dengan batas jumlah dan tombol berhenti.");
+        cleanDesc.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f);
+        cleanDesc.setTextColor(C_TEXT_DIM);
+        cleanDesc.setLineSpacing(dp(3), 1f);
+        cleanDesc.setPadding(0, dp(6), 0, dp(12));
+        clean.addView(cleanDesc);
+
+        final TextView cleanStatus = new TextView(this);
+        cleanStatus.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f);
+        cleanStatus.setTextColor(C_TEXT_DIM);
+        cleanStatus.setPadding(0, 0, 0, dp(10));
+        clean.addView(cleanStatus);
+
+        Button cleanButton = new Button(this);
+        cleanButton.setText("\uD83D\uDDD1  Buka pembersih repost");
+        cleanButton.setAllCaps(false);
+        cleanButton.setTextColor(Color.parseColor("#0B0B0F"));
+        cleanButton.setTypeface(Typeface.DEFAULT_BOLD);
+        cleanButton.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f);
+        cleanButton.setBackground(rounded(C_PINK, 14));
+        cleanButton.setPadding(dp(16), dp(13), dp(16), dp(13));
+        cleanButton.setOnClickListener(v -> startActivity(
+                new Intent(this, CleanerActivity.class)));
+        clean.addView(cleanButton, matchWrap());
+
+        cleanStatus.post(new Runnable() {
+            @Override
+            public void run() {
+                boolean running = CleanerState.isRunning(MainActivity.this);
+                long finished = CleanerState.finishedAt(MainActivity.this);
+                if (running) {
+                    cleanStatus.setTextColor(C_PINK);
+                    cleanStatus.setText("Sedang berjalan \u00b7 "
+                            + CleanerState.progress(MainActivity.this));
+                } else if (finished > 0) {
+                    cleanStatus.setTextColor(C_OK);
+                    cleanStatus.setText("Terakhir: " + CleanerState.deleted(MainActivity.this)
+                            + " repost diproses");
+                } else {
+                    cleanStatus.setText("Belum pernah dijalankan \u00b7 butuh izin aksesibilitas");
+                }
+            }
+        });
+
+        root.addView(space(16));
 
         // Kartu status
         LinearLayout card = card();

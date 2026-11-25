@@ -1,6 +1,6 @@
 # Unrepost — penyaring video repost TikTok (APK Android)
 
-APK Android ringan (**±113 KB**, tanpa iklan, tanpa server, tanpa library pihak ketiga) yang
+APK Android ringan (**±129 KB**, tanpa iklan, tanpa server, tanpa library pihak ketiga) yang
 memantau layar TikTok dan **menandai video repost / re-upload** — yaitu video yang bukan milik
 akun yang mengunggahnya (caption "repost", "credit: @...", "not mine", "ctto", "bukan video
 saya", dan sejenisnya). Opsional: video seperti itu **dilewati otomatis** (swipe ke video
@@ -10,16 +10,48 @@ berikutnya).
 > (sideload). Aplikasi tidak mengunduh video, tidak menghapus watermark, tidak login, dan tidak
 > mengirim data apa pun ke internet. Semua analisis dilakukan di perangkat.
 
+## 🗑️ Fitur utama: "Bersihkan Repost" (hapus otomatis, satu klik)
+
+Menghapus repost dari **profil TikTok Anda sendiri** secara otomatis dan bertahap:
+
+```
+Buka Profil → tab Repost → video pertama → menu Bagikan → "Hapus repost"
+→ konfirmasi → JEDA (default 8 detik, bisa 3–40 detik) → video berikutnya …
+```
+
+- **Satu klik "Mulai"** — setelah izin aktif, aplikasi membuka TikTok sendiri lalu bekerja sendiri.
+- **Bertahap/perlahan** — satu video per jeda, ada batas jumlah (1–100), tombol **Berhenti** kapan
+  saja, dan badge progres kecil di atas layar (`HAPUS 7/25 · langkah 4/7`).
+- **Mode latihan** — jalankan dulu tanpa menghapus untuk memastikan urutan tombol cocok dengan
+  versi TikTok Anda.
+- **Berhenti otomatis** — bila grid Repost kosong ("Belum ada repost"), batas tercapai, atau layar
+  tidak dikenali selama 14 percobaan (supaya tidak salah ketuk).
+- **Log lengkap** — setiap langkah dicatat di layar *Bersihkan Repost* untuk diagnosa.
+
+**Yang perlu dipahami (jujur):**
+
+| Pertanyaan | Jawaban |
+|---|---|
+| Apakah APK login ke akun TikTok? | **Tidak perlu.** APK ini bekerja pada **aplikasi TikTok yang sudah login di HP Anda** — jadi tidak ada sandi yang diminta/disimpan. Lebih aman: tidak ada data akun yang dikirim ke mana pun. |
+| Kenapa lewat aksesibilitas? | Karena TikTok tidak menyediakan API hapus-repost untuk publik, satu-satunya cara otomatis adalah menekan tombol UI-nya. Izin ini tetap harus Anda nyalakan sendiri. |
+| Berapa cepat? | Sengaja lambat (default 8 detik/video, disarankan 10–15 detik). Otomasi berkecepatan tinggi berisiko ditandai bot oleh TikTok. |
+| Apakah bisa gagal? | Bisa, bila TikTok mengubah nama tombol/menu. Itu sebabnya ada mode latihan + log; label kamus mudah diperbarui di `CleanerEngine.java`. |
+| Apakah aman untuk akun? | Hanya menyentuh tab **Repost di profil Anda** (tidak pernah feed For You), berhenti bila UI tidak dikenali, dan tidak menghapus video unggahan Anda. Tetap gunakan jeda wajar & batch kecil. |
+
 ## 📦 Unduh APK (langsung, bukan lewat Actions)
 
 | Berkas | Keterangan |
 |---|---|
-| [`dist/unrepost-debug.apk`](dist/unrepost-debug.apk) | **APK siap instal — klik lalu tombol Download** (v1.1, 113 KB, signed v1+v2+v3) |
+| [`dist/unrepost-debug.apk`](dist/unrepost-debug.apk) | **APK siap instal — klik lalu tombol Download** (v2.0, 129 KB, signed v1+v2+v3) |
 
 APK ini sudah jadi dan tersimpan di repo, jadi **tidak perlu** menunggu atau menjalankan
 GitHub Actions. (Workflow Actions hanya untuk membangun ulang otomatis jika kode diubah.)
 
 ### Pemasangan + aktivasi (2 ketukan setelah instal)
+
+> Untuk **hapus repost otomatis**: buka Unrepost → **🗑 Buka pembersih repost** → Atur jumlah &
+> jeda → **Mulai**. Aplikasi membuka TikTok dan bekerja sendiri. (Izin aksesibilitas tetap harus
+> Anda nyalakan sekali — lihat penjelasan di bagian fitur di atas.)
 
 1. Buka `dist/unrepost-debug.apk` di HP → **Download** → buka filenya → izinkan
    **"Instal dari sumber tidak dikenal"** (untuk File Manager/Chrome).
@@ -81,6 +113,15 @@ Uji: `bash tools/test.sh` → **18/18 lulus** (caption Indonesia + internasional
 - Butuh izin Aksesibilitas — itulah satu-satunya cara membaca teks aplikasi lain. Karena itu pula
   APK ini untuk sideload, bukan Play Store.
 
+## 🧪 Test
+
+```bash
+bash tools/test.sh
+# DetectorTest       : 18/18  (deteksi repost dari caption)
+# CleanerEngineTest  : 21/21  (alur hapus: profil, tab repost, menu, konfirmasi, jeda,
+#                              batas, mode latihan, berhenti saat UI tak dikenal)
+```
+
 ## 🛠️ Build dari sumber
 
 Toolchain di sandbox/CI: **aapt2 → ecj → d8 → apksigner** (tanpa Gradle & tanpa Android SDK penuh).
@@ -109,6 +150,10 @@ app/
     MainActivity.java          # UI utama: status, setelan, uji caption, statistik
     UnrepostService.java       # AccessibilityService: scan layar, badge, swipe otomatis
     RepostDetector.java        # mesin skor repost (pure Java)
+    CleanerEngine.java         # state machine hapus repost bertahap (pure Java)
+    CleanerService.java        # layanan aksesibilitas #2: menjalankan ketukan otomatis
+    CleanerActivity.java       # UI "Bersihkan Repost": setelan, progres, log
+    CleanerState.java          # progres & log lintas layar
     RepostLog.java             # riwayat (FIFO 300, anti-duplikat)
     Prefs.java                 # setelan & statistik
     HistoryActivity.java       # daftar repost yang ditandai

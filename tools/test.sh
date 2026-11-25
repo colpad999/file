@@ -13,5 +13,9 @@ rm -rf "$OUT" && mkdir -p "$OUT"
   -source 8 -target 8 -nowarn -g \
   -d "$OUT" \
   app/src/com/unrepost/app/RepostDetector.java \
-  tools/test/com/unrepost/app/DetectorTest.java
+  app/src/com/unrepost/app/CleanerEngine.java \
+  tools/test/com/unrepost/app/DetectorTest.java \
+  tools/test/com/unrepost/app/CleanerEngineTest.java
 "$JAVA" -cp "$OUT" com.unrepost.app.DetectorTest
+echo
+"$JAVA" -cp "$OUT" com.unrepost.app.CleanerEngineTest

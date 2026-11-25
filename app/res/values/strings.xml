@@ -4,4 +4,7 @@
     <string name="service_label">Unrepost — penyaring repost TikTok</string>
     <string name="service_description">Unrepost membaca teks di layar TikTok untuk mengenali video repost / re-upload (tanpa kredit ke kreator asli), lalu melewatinya atau menandainya. Semua analisis dilakukan di perangkat Anda; tidak ada data yang dikirim ke server.</string>
     <string name="history_title">Riwayat Repost</string>
+    <string name="cleaner_title">Bersihkan Repost</string>
+    <string name="cleaner_service_label">Unrepost — pembersih repost otomatis</string>
+    <string name="cleaner_service_description">Menghapus repost di profil TikTok Anda sendiri secara otomatis dan bertahap: membuka Profil → tab Repost → menu bagikan → "Hapus repost" → konfirmasi, satu video per jeda. Membutuhkan izin aksesibilitas untuk mengetuk menu atas nama Anda.</string>
 </resources>
