@@ -30,6 +30,25 @@ Unrepost baca tab Repost di profil Anda → hapus video #1 → jeda 12 dtk → #
 > **Rekomendasi**: jalankan **Mode latihan** sekali (tidak menghapus, hanya mencatat) untuk
 > memastikan API TikTok versi Anda menerima perintahnya, lalu mulai batch kecil (10–20 video).
 
+## 🔧 v2.2 — memperbaiki "aplikasi keluar sendiri saat login"
+
+Penyebabnya ditemukan di kode (bukan tebak-tebakan):
+
+| Penyebab | Perbaikan |
+|---|---|
+| Proses Chromium (WebView) TikTok **mati karena kehabisan memori** saat login — mematikan proses aplikasi tanpa `onRenderProcessGone()` | Ditangani: WebView TikTok ditutup dengan pesan + WebView utama dimuat ulang; aplikasi tidak ikut mati |
+| `evaluateJavascript()` dipanggil dari **thread latar** (setelah HTTP selesai) — Android bisa langsung mematikan proses | Hasil HTTP sekarang dikirim ke thread UI lewat `Handler`, dibungkus try/catch |
+| `android:largeHeap` belum aktif | Aktif (`largeHeap="true"`) agar login berat tidak kehabisan memori |
+| Crash tak tertangani = aplikasi hilang tanpa pesan | Dipasang penangkap terakhir: muncul toast "Aplikasi terhenti: …" (tidak lagi hilang diam-diam) |
+| WebView login TikTok terlalu berat (zoom, multi-window, autoplay) | Dimatikan semua → WebView ringan |
+| **Login lewat form cepat rawan** untuk akun Google/2FA | **Urutan dibalik**: sekarang **Cara 1 = login resmi TikTok** (Google/2FA didukung, paling stabil). Form cepat jadi **Cara 2 (opsional, tersembunyi)** |
+
+Tambahan: kartu **Diagnostik** di tab Pengaturan (info perangkat + tombol **"Salin info + log"**)
+supaya kalau masih ada masalah, log-nya bisa langsung dikirim ke pengembang.
+
+**Kalau masih keluar sendiri:** buka Pengaturan → Diagnostik → **Salin info + log**, lalu kirim ke
+saya. Log menyebut langkah terakhir yang berhasil, jadi penyebabnya bisa langsung terlihat.
+
 ## 🧠 Bagaimana "tanpa Setelan" itu bisa bekerja
 
 Situs di dalam APK memanggil API TikTok langsung dari HP Anda:

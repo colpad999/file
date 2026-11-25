@@ -36,17 +36,50 @@ public class WebAppActivity extends Activity {
     private WebView web;
     private FrameLayout root;
     private WebView tiktokWeb;
+    private final android.os.Handler main = new android.os.Handler(android.os.Looper.getMainLooper());
+    private boolean renderedCrash;
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        // Jaring pengaman terakhir: jangan pernah "keluar sendiri" tanpa pesan.
+        Thread.setDefaultUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
+            @Override
+            public void uncaughtException(Thread thread, Throwable error) {
+                try {
+                    String msg = "Aplikasi terhenti: " + error.getClass().getSimpleName()
+                            + (error.getMessage() == null ? "" : " — " + error.getMessage());
+                    android.util.Log.e("Unrepost", msg, error);
+                    Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_LONG).show();
+                } catch (Throwable ignored) {
+                }
+                try {
+                    Thread.sleep(600L);
+                } catch (InterruptedException ignored) {
+                }
+                android.os.Process.killProcess(android.os.Process.myPid());
+            }
+        });
+
         root = new FrameLayout(this);
         root.setBackgroundColor(Color.parseColor("#0B0B0F"));
 
-        web = new WebView(this);
-        WebSettings s = web.getSettings();
+        web = newWebView();
+
+        root.addView(web, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        setContentView(root);
+
+        web.loadUrl("file:///android_asset/web/index.html");
+    }
+
+    /** Buat WebView utama lengkap dengan setelan + jembatan JS. */
+    @SuppressLint("SetJavaScriptEnabled")
+    private WebView newWebView() {
+        WebView w = new WebView(this);
+        WebSettings s = w.getSettings();
         s.setJavaScriptEnabled(true);
         s.setDomStorageEnabled(true);
         s.setDatabaseEnabled(true);
@@ -65,19 +98,33 @@ public class WebAppActivity extends Activity {
         CookieManager cm = CookieManager.getInstance();
         cm.setAcceptCookie(true);
         if (Build.VERSION.SDK_INT >= 21) {
-            cm.setAcceptThirdPartyCookies(web, true);
+            cm.setAcceptThirdPartyCookies(w, true);
         }
 
-        web.setBackgroundColor(Color.parseColor("#0B0B0F"));
-        web.setWebChromeClient(new MyChromeClient());
-        web.setWebViewClient(new MyWebClient());
-        web.addJavascriptInterface(new Bridge(this), "UnrepostNative");
+        w.setBackgroundColor(Color.parseColor("#0B0B0F"));
+        w.setWebChromeClient(new MyChromeClient());
+        w.setWebViewClient(new MyWebClient());
+        w.addJavascriptInterface(new Bridge(this), "UnrepostNative");
 
-        root.addView(web, new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-        setContentView(root);
+        return w;
+    }
 
-        web.loadUrl("file:///android_asset/web/index.html");
+    @Override
+    protected void onDestroy() {
+        try {
+            if (tiktokWeb != null) {
+                root.removeView(tiktokWeb);
+                tiktokWeb.destroy();
+                tiktokWeb = null;
+            }
+            if (web != null) {
+                root.removeView(web);
+                web.destroy();
+                web = null;
+            }
+        } catch (Exception ignored) {
+        }
+        super.onDestroy();
     }
 
     @Override
@@ -102,6 +149,7 @@ public class WebAppActivity extends Activity {
     /** WebView kedua untuk login/verifikasi TikTok (punya cookie sendiri). */
     @SuppressLint("SetJavaScriptEnabled")
     private void openTikTok(String url) {
+        // WebView ringan: tanpa zoom, tanpa auto-window, media butuh gestur → memori kecil.
         if (tiktokWeb == null) {
             tiktokWeb = new WebView(this);
             WebSettings s = tiktokWeb.getSettings();
@@ -110,11 +158,15 @@ public class WebAppActivity extends Activity {
             s.setDatabaseEnabled(true);
             s.setLoadWithOverviewMode(true);
             s.setUseWideViewPort(true);
-            s.setSupportZoom(true);
-            s.setBuiltInZoomControls(true);
+            s.setSupportZoom(false);
+            s.setBuiltInZoomControls(false);
             s.setDisplayZoomControls(false);
-            s.setJavaScriptCanOpenWindowsAutomatically(true);
+            s.setJavaScriptCanOpenWindowsAutomatically(false);
             s.setSupportMultipleWindows(false);
+            s.setMediaPlaybackRequiresUserGesture(true);
+            s.setBlockNetworkImage(false);
+            s.setCacheMode(WebSettings.LOAD_DEFAULT);
+            s.setDomStorageEnabled(true);
             s.setUserAgentString(s.getUserAgentString().replace("; wv)", ")"));
             CookieManager cm = CookieManager.getInstance();
             cm.setAcceptCookie(true);
@@ -179,6 +231,31 @@ public class WebAppActivity extends Activity {
             } catch (Exception ignored) {
             }
             return true;
+        }
+
+        @Override
+        public boolean onRenderProcessGone(WebView view, android.webkit.RenderProcessGoneDetail detail) {
+            // Renderer Chromium mati (biasanya kehabisan memori saat login TikTok).
+            // Tangani sendiri supaya aplikasi tidak ikut tertutup.
+            try {
+                if (view == tiktokWeb) {
+                    closeTikTok();
+                    Toast.makeText(WebAppActivity.this,
+                            "Halaman TikTok ditutup karena memori penuh. Coba lagi.",
+                            Toast.LENGTH_LONG).show();
+                } else if (view == web) {
+                    root.removeView(view);
+                    view.destroy();
+                    web = newWebView();
+                    root.addView(web, 0, new FrameLayout.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+                    web.loadUrl("file:///android_asset/web/index.html");
+                    Toast.makeText(WebAppActivity.this,
+                            "Memuat ulang aplikasi…", Toast.LENGTH_SHORT).show();
+                }
+            } catch (Exception ignored) {
+            }
+            return true; // penting: jangan biarkan sistem mematikan proses kita
         }
 
         @Override
@@ -286,21 +363,20 @@ public class WebAppActivity extends Activity {
         @JavascriptInterface
         public void api(final String method, final String url, final String body,
                         final String callbackId) {
-            activity.runOnUiThread(new Runnable() {
+            // JANGAN memakai evaluateJavascript dari thread latar (itu bisa mematikan proses).
+            // Hasil dikembalikan ke thread UI lewat Handler.
+            new Thread(new Runnable() {
                 @Override
                 public void run() {
-                    new Thread(new Runnable() {
+                    final String payload = Http.jsonRequest(method, url, body);
+                    activity.main.post(new Runnable() {
                         @Override
                         public void run() {
-                            String payload = Http.jsonRequest(method, url, body);
-                            activity.web.evaluateJavascript(
-                                    "window.UnrepostNativeResult && window.UnrepostNativeResult("
-                                            + jsString(callbackId) + ", " + jsString(payload) + ");",
-                                    null);
+                            activity.deliverCallback(callbackId, payload);
                         }
-                    }, "unrepost-http").start();
+                    });
                 }
-            });
+            }, "unrepost-http").start();
         }
 
         @JavascriptInterface
@@ -315,7 +391,24 @@ public class WebAppActivity extends Activity {
 
         @JavascriptInterface
         public String version() {
-            return "2.1";
+            return "2.2";
+        }
+
+        /** Info perangkat untuk layar Pengaturan (diagnostik bila ada masalah). */
+        @JavascriptInterface
+        public String deviceInfo() {
+            try {
+                android.os.Build b = new android.os.Build();
+                return "{\"android\":" + android.os.Build.VERSION.SDK_INT
+                        + ",\"model\":\"" + (android.os.Build.MANUFACTURER + " " + android.os.Build.MODEL)
+                        .replace("\"", "") + "\",\"webview\":\""
+                        + android.webkit.WebSettings.getDefaultUserAgent(activity)
+                        .replaceAll("[^A-Za-z0-9 ./;-]", "").replace("\"", "")
+                        + "\",\"heapMB\":" + (Runtime.getRuntime().maxMemory() / (1024 * 1024))
+                        + "}";
+            } catch (Exception e) {
+                return "{}";
+            }
         }
     }
 
@@ -420,6 +513,23 @@ public class WebAppActivity extends Activity {
             }
             sb.append('"');
             return sb.toString();
+        }
+    }
+
+    /**
+     * Kirim hasil HTTP ke JavaScript. Dipanggil HANYA di thread UI dan selalu
+     * dalam try/catch: bila WebView sudah hilang, aplikasi tidak boleh ikut mati.
+     */
+    void deliverCallback(String callbackId, String payload) {
+        if (web == null || callbackId == null || payload == null) {
+            return;
+        }
+        try {
+            String js = "window.UnrepostNativeResult && window.UnrepostNativeResult("
+                    + jsString(callbackId) + ", " + jsString(payload) + ");";
+            web.evaluateJavascript(js, null);
+        } catch (Exception ignored) {
+            // WebView dimusnahkan saat proses berjalan — abaikan.
         }
     }
 

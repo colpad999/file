@@ -32,44 +32,42 @@
     </div>
 
     <div class="card login-card">
-      <div class="card-label">LOGIN TIKTOK</div>
+      <div class="card-label">CARA 1 · PALING AMAN (DISARANKAN)</div>
+      <p class="muted small" style="margin-top:0">Login di <b>halaman resmi TikTok</b> yang terbuka
+        di dalam aplikasi. Mendukung Google, email, nomor HP, dan verifikasi 2 langkah —
+        sandi Anda diketik langsung di halaman TikTok, bukan di Unrepost.</p>
+      <button class="primary" id="webLoginBtn" type="button">Buka login resmi TikTok →</button>
+      <button class="secondary" id="webLoginCheck" type="button">Saya sudah login — periksa sesi</button>
+      <div class="err" id="loginErr" hidden></div>
+    </div>
 
-      <label class="field">
-        <span>Email / username / nomor HP</span>
-        <input id="identifier" type="text" autocomplete="username" autocapitalize="none"
-               spellcheck="false" placeholder="contoh: @namaakun">
-      </label>
-
-      <label class="field">
-        <span>Sandi</span>
-        <div class="pass-wrap">
-          <input id="password" type="password" autocomplete="current-password"
-                 placeholder="sandi TikTok Anda">
-          <button class="peek" id="peekBtn" type="button" aria-label="lihat sandi">👁</button>
-        </div>
-      </label>
-
+    <div class="card">
       <div class="row-between">
+        <div class="card-label" style="margin:0">CARA 2 · FORM CEPAT (OPSIONAL)</div>
+        <button class="link small" id="quickToggle" type="button">buka</button>
+      </div>
+      <div id="quickBox" hidden>
+        <p class="muted small">Isi langsung di sini. Tidak bisa dipakai untuk akun Google, dan
+          tidak melewati 2FA.</p>
+        <label class="field">
+          <span>Email / username / nomor HP</span>
+          <input id="identifier" type="text" autocomplete="username" autocapitalize="none"
+                 spellcheck="false" placeholder="contoh: @namaakun">
+        </label>
+        <label class="field">
+          <span>Sandi</span>
+          <div class="pass-wrap">
+            <input id="password" type="password" autocomplete="current-password"
+                   placeholder="sandi TikTok Anda">
+            <button class="peek" id="peekBtn" type="button" aria-label="lihat sandi">👁</button>
+          </div>
+        </label>
         <label class="check">
           <input type="checkbox" id="remember" checked>
           <span>Ingat perangkat ini</span>
         </label>
-        <span class="muted small">2FA? diminta setelah ini</span>
+        <button class="primary" id="loginBtn" type="button">Masuk →</button>
       </div>
-
-      <button class="primary" id="loginBtn" type="button">Masuk →</button>
-      <div class="err" id="loginErr" hidden></div>
-
-      <p class="fine">Kredensial hanya dipakai untuk membuat sesi login di situs TikTok.
-        Unrepost tidak menyimpan sandi Anda.</p>
-    </div>
-
-    <div class="card alt-card" id="webLoginCard">
-      <div class="card-label">ATAU LEWAT WEBSITE TIKTOK</div>
-      <p class="muted">Lebih aman: login langsung di halaman resmi TikTok (bisa lewat Google/Apple),
-        termasuk verifikasi 2 langkah. Setelah masuk, kembali ke Unrepost.</p>
-      <button class="secondary" id="webLoginBtn" type="button">Buka halaman login TikTok</button>
-      <button class="link" id="webLoginCheck" type="button">Saya sudah login — periksa sesi</button>
     </div>
 
     <div class="card warn-card">
@@ -180,6 +178,12 @@
           <span>Getar tiap 5 video</span></label>
         <label class="check"><input type="checkbox" id="prefKeepAwake" checked>
           <span>Layar tetap menyala saat proses</span></label>
+      </div>
+
+      <div class="card">
+        <div class="card-label">DIAGNOSTIK</div>
+        <p class="muted small" id="diag">memuat info perangkat…</p>
+        <button class="secondary" id="copyDiag" type="button">Salin info + log</button>
       </div>
 
       <div class="card">

@@ -29,7 +29,7 @@ function makeEl(id) {
     addEventListener() {}, removeEventListener() {}, remove() {},
     appendChild(c) { this.children.push(c); return c; },
     insertBefore(c) { this.children.push(c); return c; },
-    querySelectorAll: () => [], scrollTop: 0, scrollHeight: 0,
+    querySelectorAll: () => [], scrollTop: 0, scrollHeight: 0, className: 'link small',
     focus() {}, click() { if (this.onclick) this.onclick({ target: this }); },
     firstChild: null, nextSibling: null
   };
@@ -84,7 +84,10 @@ function fakeFetch(url, opts) {
 
 const sandbox = {
   window: {},
+  addEventListener: () => {},
   document: {
+    body: { appendChild() {}, removeChild() {} },
+    execCommand: () => true,
     getElementById: $,
     querySelectorAll: () => [],
     createElement: () => makeEl('new'),
@@ -181,6 +184,18 @@ function tick(ms) { return new Promise(r => setTimeout(r, ms || 0)); }
     if (missing.length) console.log('     id hilang:', missing.join(', '));
     return missing.length === 0;
   })());
+
+  // ---- UI: jalur resmi jadi utama, form cepat tersembunyi
+  const htmlSrc = fs.readFileSync(HTML, 'utf8');
+  check('login resmi tampil lebih dulu (cara 1)', htmlSrc.indexOf('CARA 1') < htmlSrc.indexOf('CARA 2'));
+  check('form cepat tersembunyi default', /id="quickBox" hidden/.test(htmlSrc));
+  check('tombol buka form cepat terpasang', typeof $('quickToggle').onclick === 'function');
+  $('quickBox').hidden = true;   // di HTML: <div id="quickBox" hidden>
+  $('quickToggle').onclick.call($('quickToggle'));
+  check('tombol buka form cepat bekerja', $('quickBox').hidden === false);
+  $('quickToggle').onclick.call($('quickToggle'));
+  check('tombol bisa menutup lagi', $('quickBox').hidden === true);
+  check('diagnostik terisi', $('diag').textContent.length > 0, 'diag="' + $('diag').textContent + '"');
 
   // ---- login gagal (sandi salah)
   fetchMode = 'badpass';

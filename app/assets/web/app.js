@@ -596,6 +596,11 @@
       var p = $('password');
       p.type = p.type === 'password' ? 'text' : 'password';
     };
+    $('quickToggle').onclick = function () {
+      var box = $('quickBox');
+      box.hidden = !box.hidden;
+      this.textContent = box.hidden ? 'buka' : 'tutup';
+    };
     $('webLoginBtn').onclick = function () {
       openTikTok(WEB_LOGIN_URL);
       toast('Login di halaman TikTok, lalu kembali');
@@ -655,6 +660,7 @@
         else toast('Sesi tidak valid — login ulang');
       });
     };
+    $('copyDiag').onclick = copyDiagnostics;
     $('clearHistory').onclick = function () {
       save(STORE.history, []);
       renderHistory();
@@ -693,6 +699,46 @@
     $('identifier').value = '';
   }
 
+  function renderDiagnostics() {
+    var el = $('diag');
+    if (!el) return;
+    var lines = [];
+    lines.push('Unrepost ' + (native ? '2.2' : 'web'));
+    if (native && native.deviceInfo) {
+      try {
+        var d = JSON.parse(native.deviceInfo());
+        lines.push('Android ' + d.android + ' · ' + d.model);
+        lines.push('Memori maks ' + d.heapMB + ' MB');
+      } catch (e) { /* abaikan */ }
+    }
+    lines.push('Transpor: ' + (native && native.api ? 'native HTTP' : 'fetch browser'));
+    lines.push('Sesi: ' + (session ? '@' + session.username : 'belum login'));
+    el.textContent = lines.join(' · ');
+  }
+
+  function copyDiagnostics() {
+    var text = '=== Unrepost diagnostik ===\n' + ($('diag') ? $('diag').textContent : '') +
+      '\n\n=== log ===\n' + $('log').textContent;
+    var done = function () { toast('Disalin — tempel ke chat pengembang'); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done).catch(function () { fallbackCopy(text, done); });
+    } else {
+      fallbackCopy(text, done);
+    }
+  }
+
+  function fallbackCopy(text, done) {
+    try {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      done();
+    } catch (e) { toast('Tidak bisa menyalin otomatis'); }
+  }
+
   function boot() {
     var mock = null;
     try {
@@ -708,7 +754,18 @@
     bind();
     refreshSessionCard();
     renderHistory();
+    renderDiagnostics();
     go(session ? 'app' : 'login');
+
+    // Jangan biarkan satu error kecil menutup aplikasi.
+    if (typeof window.addEventListener === 'function') {
+      window.addEventListener('error', function (e) {
+        try { log('error UI: ' + (e && e.message ? e.message : 'tidak diketahui')); } catch (x) {}
+      });
+      window.addEventListener('unhandledrejection', function (e) {
+        try { log('promise gagal: ' + (e && e.reason ? String(e.reason) : 'tidak diketahui')); } catch (x) {}
+      });
+    }
   }
 
   // API untuk native
