@@ -51,6 +51,7 @@ banner "2/5 aapt2 link (manifest + resource -> base.apk)"
   -o "$OUT/base.apk" \
   -I "$ANDROID_JAR" \
   --manifest "$MANIFEST" \
+  -A "$ROOT/app/assets" \
   "$OUT/compiled/res.zip" \
   --java "$OUT/gen" \
   --min-sdk-version "$MIN_SDK" \

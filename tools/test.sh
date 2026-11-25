@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Unit test mesin deteksi (RepostDetector) di JVM biasa — tanpa Android/emulator.
+# Test: mesin deteksi (RepostDetector), mesin pembersih (CleanerEngine), dan
+# logika situs di dalam APK (web-test, dengan fetch tiruan).
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
@@ -19,3 +20,7 @@ rm -rf "$OUT" && mkdir -p "$OUT"
 "$JAVA" -cp "$OUT" com.unrepost.app.DetectorTest
 echo
 "$JAVA" -cp "$OUT" com.unrepost.app.CleanerEngineTest
+echo
+if [ -d "$ROOT/web-test" ] && command -v node >/dev/null 2>&1; then
+  (cd "$ROOT/web-test" && node run-tests.js)
+fi

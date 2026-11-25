@@ -6,3 +6,8 @@ build/
 local.properties
 keys/
 *.jks
+web-test/node_modules/
+web-test/package-lock.json
+node_modules/
+package.json
+package-lock.json

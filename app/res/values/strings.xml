@@ -7,4 +7,5 @@
     <string name="cleaner_title">Bersihkan Repost</string>
     <string name="cleaner_service_label">Unrepost — pembersih repost otomatis</string>
     <string name="cleaner_service_description">Menghapus repost di profil TikTok Anda sendiri secara otomatis dan bertahap: membuka Profil → tab Repost → menu bagikan → "Hapus repost" → konfirmasi, satu video per jeda. Membutuhkan izin aksesibilitas untuk mengetuk menu atas nama Anda.</string>
+    <string name="legacy_mode_title">Unrepost (mode aksesibilitas)</string>
 </resources>

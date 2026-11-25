@@ -1,4 +1,65 @@
-# Unrepost — penyaring video repost TikTok (APK Android)
+# Unrepost 2.1 — bersihkan repost TikTok lewat website di dalam APK
+
+Sekarang aplikasinya **berupa website** yang tertanam di dalam APK (WebView). Tidak ada yang
+perlu diaktifkan di Setelan: buka app → **login TikTok** → tekan **satu tombol** → repost di
+profil Anda dihapus satu per satu, perlahan.
+
+```
+Login (di halaman Unrepost)  →  🗑 Bersihkan repost sekarang
+   ↓
+Unrepost baca tab Repost di profil Anda → hapus video #1 → jeda 12 dtk → #2 → … → batch selesai
+```
+
+| | |
+|---|---|
+| **Ukuran APK** | ±146 KB |
+| **Izin yang diminta ke pengguna** | tidak ada (hanya INTERNET untuk memanggil API TikTok) |
+| **Perlu aktifkan Aksesibilitas?** | **tidak** (mode lama tetap ada sebagai cadangan) |
+| **Login** | di dalam halaman app (email/username + sandi) **atau** lewat halaman login resmi TikTok di WebView (mendukung Google/2FA) |
+| **Data dikirim ke server lain?** | tidak ada — hanya ke `*.tiktok.com` |
+
+## 📲 Alur pemakaian (3 langkah, tanpa Setelan)
+
+1. Instal APK → buka **Unrepost** (langsung tampil halaman situs, bukan menu Android).
+2. **Login**: isi email/username + sandi → *Masuk*. Kalau akun Anda pakai Google atau 2FA,
+   tekan **"Buka halaman login TikTok"** (halaman resmi, bisa Google/2FA) lalu
+   **"Saya sudah login — periksa sesi"**.
+3. Di tab **Bersihkan**: atur batch (1–60) & jeda (default 12 dtk) → tekan
+   **🗑 Bersihkan repost sekarang**. Ada progres, **Jeda**, **Berhenti**, log langsung, dan riwayat.
+
+> **Rekomendasi**: jalankan **Mode latihan** sekali (tidak menghapus, hanya mencatat) untuk
+> memastikan API TikTok versi Anda menerima perintahnya, lalu mulai batch kecil (10–20 video).
+
+## 🧠 Bagaimana "tanpa Setelan" itu bisa bekerja
+
+Situs di dalam APK memanggil API TikTok langsung dari HP Anda:
+
+| Langkah | Endpoint |
+|---|---|
+| Login | `POST /api/v1/user/login/` (form: username, password) |
+| Ambil daftar repost profil | `GET /api/post/item_list/` |
+| Hapus satu repost | `POST /api/v1/aweme/digest/undo/repost/` → fallback `POST /aweme/v1/undigest/` |
+
+Supaya benar-benar jalan di WebView, semua request dikirim lewat **jembatan native**
+(`UnrepostNative.api(...)` → `HttpURLConnection` + cookie dari `CookieManager`). Ini penting
+karena `fetch` di WebView diblokir CORS oleh TikTok dan POST tidak bisa di-proxy lewat
+`shouldInterceptRequest` (body-nya tidak tersedia). Jadi login di WebView TikTok dan proses
+hapus memakai **cookie sesi yang sama**.
+
+**Yang harus diketahui (jujur, tanpa menutupi):**
+
+- Endpoint di atas adalah API web internal TikTok — **tidak dijamin** stabil. Kalau TikTok
+  mengganti nama/parameter, proses bisa berhenti dengan pesan error; itu terlihat jelas di log.
+- **Login Google tidak bisa lewat form cepat** (Google memblokir WebView). Gunakan jalur
+  "Buka halaman login TikTok" untuk akun Google/2FA.
+- Jeda 10–15 detik itu bukan hiasan: otomasi tanpa jeda wajar berisiko ditandai bot oleh TikTok.
+  Aplikasi juga berhenti sendiri setelah 3 kegagalan beruntun.
+- Hanya menyentuh tab **Repost** milik akun Anda; tidak pernah feed For You, tidak pernah video
+  unggahan.
+
+---
+
+# Bagian lama: penyaring repost (mode aksesibilitas)
 
 APK Android ringan (**±129 KB**, tanpa iklan, tanpa server, tanpa library pihak ketiga) yang
 memantau layar TikTok dan **menandai video repost / re-upload** — yaitu video yang bukan milik
@@ -116,11 +177,16 @@ Uji: `bash tools/test.sh` → **18/18 lulus** (caption Indonesia + internasional
 ## 🧪 Test
 
 ```bash
-bash tools/test.sh
-# DetectorTest       : 18/18  (deteksi repost dari caption)
-# CleanerEngineTest  : 21/21  (alur hapus: profil, tab repost, menu, konfirmasi, jeda,
-#                              batas, mode latihan, berhenti saat UI tak dikenal)
+bash tools/test.sh          # 64 cek, semua lulus
+#  DetectorTest      18/18  deteksi repost dari caption
+#  CleanerEngineTest 21/21  alur hapus via aksesibilitas (mode lama)
+#  web-test          25/25  logika situs: login (salah/benar), jalur website, batch 15 video,
+#                           jeda, mode latihan, berhenti, 3x gagal → stop, riwayat, logout
 ```
+
+Pratinjau tampilan tanpa HP: `docs/mockup.html` (mockup dua layar) atau jalankan
+`python3 -m http.server` di root repo lalu buka
+`http://localhost:8000/app/assets/web/index.html?mock=app`.
 
 ## 🛠️ Build dari sumber
 
@@ -154,9 +220,14 @@ app/
     CleanerService.java        # layanan aksesibilitas #2: menjalankan ketukan otomatis
     CleanerActivity.java       # UI "Bersihkan Repost": setelan, progres, log
     CleanerState.java          # progres & log lintas layar
+    WebAppActivity.java        # layar utama: WebView + jembatan native (HTTP, notifikasi, dsb)
     RepostLog.java             # riwayat (FIFO 300, anti-duplikat)
     Prefs.java                 # setelan & statistik
     HistoryActivity.java       # daftar repost yang ditandai
+app/assets/web/                # "website" Unrepost yang dijalankan di dalam APK
+  index.html  style.css  app.js
+web-test/                      # test logika situs (node, fetch di-mock)
+docs/mockup.html               # pratinjau tampilan tanpa HP
 tools/
   fetch-toolchain.sh  build-apk.sh  test.sh  lambda-stub/
 tools/test/com/unrepost/app/DetectorTest.java

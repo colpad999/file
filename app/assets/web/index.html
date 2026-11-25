@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="theme-color" content="#0B0B0F">
+<title>Unrepost — bersihkan repost TikTok</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ============================ HEADER ============================ -->
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">⛔</span>
+      <div>
+        <div class="brand-name">Unrepost</div>
+        <div class="brand-sub" id="brandSub">pembersih repost TikTok</div>
+      </div>
+    </div>
+    <button class="ghost" id="helpBtn" type="button">?</button>
+  </header>
+
+  <!-- ============================ VIEW: LOGIN ============================ -->
+  <section class="view" id="view-login">
+    <div class="hero">
+      <h1>Hapus repost TikTok<br>tanpa nyentuh Setelan.</h1>
+      <p class="lede">Login sekali di halaman ini. Unrepost akan menghapus repost di profil Anda
+        satu per satu, perlahan, sampai bersih.</p>
+    </div>
+
+    <div class="card login-card">
+      <div class="card-label">LOGIN TIKTOK</div>
+
+      <label class="field">
+        <span>Email / username / nomor HP</span>
+        <input id="identifier" type="text" autocomplete="username" autocapitalize="none"
+               spellcheck="false" placeholder="contoh: @namaakun">
+      </label>
+
+      <label class="field">
+        <span>Sandi</span>
+        <div class="pass-wrap">
+          <input id="password" type="password" autocomplete="current-password"
+                 placeholder="sandi TikTok Anda">
+          <button class="peek" id="peekBtn" type="button" aria-label="lihat sandi">👁</button>
+        </div>
+      </label>
+
+      <div class="row-between">
+        <label class="check">
+          <input type="checkbox" id="remember" checked>
+          <span>Ingat perangkat ini</span>
+        </label>
+        <span class="muted small">2FA? diminta setelah ini</span>
+      </div>
+
+      <button class="primary" id="loginBtn" type="button">Masuk →</button>
+      <div class="err" id="loginErr" hidden></div>
+
+      <p class="fine">Kredensial hanya dipakai untuk membuat sesi login di situs TikTok.
+        Unrepost tidak menyimpan sandi Anda.</p>
+    </div>
+
+    <div class="card alt-card" id="webLoginCard">
+      <div class="card-label">ATAU LEWAT WEBSITE TIKTOK</div>
+      <p class="muted">Lebih aman: login langsung di halaman resmi TikTok (bisa lewat Google/Apple),
+        termasuk verifikasi 2 langkah. Setelah masuk, kembali ke Unrepost.</p>
+      <button class="secondary" id="webLoginBtn" type="button">Buka halaman login TikTok</button>
+      <button class="link" id="webLoginCheck" type="button">Saya sudah login — periksa sesi</button>
+    </div>
+
+    <div class="card warn-card">
+      <div class="card-label">SEBELUM MULAI</div>
+      <ul class="bullets">
+        <li><b>Tidak bisa login lewat Google</b> di jalur cepat (Google memblokir browser dalam
+          aplikasi). Pakai jalur <b>website TikTok</b> untuk akun Google.</li>
+        <li>Batasi <b>10–20 video per batch</b> dengan jeda wajar. Otomasi berlebihan berisiko
+          ditandai bot oleh TikTok.</li>
+        <li>Unrepost hanya menyentuh tab <b>Repost di profil Anda</b> — bukan video unggahan,
+          bukan feed.</li>
+      </ul>
+    </div>
+
+    <p class="foot muted small">Tidak berafiliasi dengan TikTok/ByteDance. Gunakan untuk akun
+      Anda sendiri.</p>
+  </section>
+
+  <!-- ============================ VIEW: DASHBOARD ============================ -->
+  <section class="view" id="view-app" hidden>
+    <div class="card session-card">
+      <div class="avatar" id="avatar">@</div>
+      <div class="who">
+        <div class="who-name" id="whoName">Belum terhubung</div>
+        <div class="who-sub" id="whoSub">login di tab Pengaturan</div>
+      </div>
+      <button class="ghost" id="logoutBtn" type="button" title="keluar">⎋</button>
+    </div>
+
+    <div class="tabs" id="tabs">
+      <button class="tab active" data-tab="clean" type="button">Bersihkan</button>
+      <button class="tab" data-tab="history" type="button">Riwayat</button>
+      <button class="tab" data-tab="settings" type="button">Pengaturan</button>
+    </div>
+
+    <!-- ---------- tab: bersihkan ---------- -->
+    <div class="tab-panel" id="panel-clean">
+      <div class="card">
+        <div class="card-label">SATU KLIK</div>
+        <button class="primary big" id="cleanBtn" type="button">
+          <span id="cleanBtnText">🗑  Bersihkan repost sekarang</span>
+        </button>
+        <div class="progress" id="progressWrap" hidden>
+          <div class="bar"><div class="bar-fill" id="barFill"></div></div>
+          <div class="row-between small">
+            <span id="progressText">menyiapkan…</span>
+            <span id="progressCount">0/0</span>
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="secondary" id="pauseBtn" type="button" hidden>Jeda</button>
+          <button class="danger" id="stopBtn" type="button" hidden>Berhenti</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-label">BATCH</div>
+        <label class="field">
+          <span>Maksimal video per batch: <b id="batchVal">15</b></span>
+          <input id="batch" type="range" min="1" max="60" value="15">
+        </label>
+        <label class="field">
+          <span>Jeda antar video: <b id="gapVal">12</b> detik</span>
+          <input id="gap" type="range" min="4" max="45" value="12">
+          <small class="muted">10–15 detik = paling aman. Di bawah 6 detik berisiko.</small>
+        </label>
+        <label class="check">
+          <input type="checkbox" id="dryRun">
+          <span>Mode latihan (tidak menghapus, hanya mencatat)</span>
+        </label>
+        <label class="check">
+          <input type="checkbox" id="onlyReposts" checked>
+          <span>Hanya proses tab Repost di profil saya</span>
+        </label>
+      </div>
+
+      <div class="card">
+        <div class="card-label">LOG LANGSUNG</div>
+        <pre class="log" id="log">siap.</pre>
+      </div>
+    </div>
+
+    <!-- ---------- tab: riwayat ---------- -->
+    <div class="tab-panel" id="panel-history" hidden>
+      <div class="card">
+        <div class="row-between">
+          <div class="card-label">RIWAYAT BATCH</div>
+          <button class="link small" id="clearHistory" type="button">hapus semua</button>
+        </div>
+        <div id="historyList" class="history"><p class="muted small">Belum ada riwayat.</p></div>
+      </div>
+    </div>
+
+    <!-- ---------- tab: pengaturan ---------- -->
+    <div class="tab-panel" id="panel-settings" hidden>
+      <div class="card">
+        <div class="card-label">SESI TIKTOK</div>
+        <p class="muted small" id="sessionInfo">Belum login.</p>
+        <button class="secondary" id="reloginBtn" type="button">Login / ganti akun</button>
+        <button class="secondary" id="verifyBtn" type="button">Periksa & perbarui kredensial</button>
+      </div>
+
+      <div class="card">
+        <div class="card-label">PREFERENSI</div>
+        <label class="check"><input type="checkbox" id="prefNotify" checked>
+          <span>Notifikasi saat batch selesai</span></label>
+        <label class="check"><input type="checkbox" id="prefVibrate" checked>
+          <span>Getar tiap 5 video</span></label>
+        <label class="check"><input type="checkbox" id="prefKeepAwake" checked>
+          <span>Layar tetap menyala saat proses</span></label>
+      </div>
+
+      <div class="card">
+        <div class="card-label">TENTANG</div>
+        <p class="muted small">Unrepost 2.1 · ukuran ±150 KB · tanpa server pihak ketiga.
+          Semua kredensial hanya dikirim ke domain TikTok saat login.</p>
+        <p class="muted small">Kalau TikTok mengubah tampilan dan proses macet, buka
+          <b>Pengaturan → Periksa &amp; perbarui kredensial</b>, atau kirim log ke pengembang.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ MODAL: HELP ============================ -->
+  <div class="sheet" id="helpSheet" hidden>
+    <div class="sheet-inner">
+      <h2>Cara kerja</h2>
+      <ol class="bullets">
+        <li><b>Login</b> di halaman ini (atau lewat website TikTok resmi).</li>
+        <li>Buka tab <b>Bersihkan</b>, atur batch & jeda, tekan <b>Bersihkan repost sekarang</b>.</li>
+        <li>Unrepost membuka <b>Profil → Repost</b> di akun Anda, lalu menghapus satu video
+          per jeda sampai batas batch.</li>
+        <li>Bisa <b>dijeda</b> atau <b>dihentikan</b> kapan saja. Riwayat tersimpan di perangkat.</li>
+      </ol>
+      <h2>Kenapa perlu login?</h2>
+      <p class="muted">Menghapus repost butuh sesi akun Anda. Tanpa login, TikTok tidak akan
+        mengizinkan perubahan apa pun.</p>
+      <h2>Tidak jalan?</h2>
+      <p class="muted">TikTok sering mengganti nama tombol. Coba <b>Mode latihan</b> dulu, lalu
+        kirim isi <b>Log</b> ke pengembang — label baru bisa ditambahkan dalam hitungan menit.</p>
+      <button class="primary" id="helpClose" type="button">Mengerti</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" hidden></div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
