@@ -105,48 +105,91 @@
 
     <!-- ---------- tab: bersihkan ---------- -->
     <div class="tab-panel" id="panel-clean">
-      <div class="card">
-        <div class="card-label">SATU KLIK</div>
-        <button class="primary big" id="cleanBtn" type="button">
-          <span id="cleanBtnText">🗑  Bersihkan repost sekarang</span>
-        </button>
-        <div class="progress" id="progressWrap" hidden>
-          <div class="bar"><div class="bar-fill" id="barFill"></div></div>
-          <div class="row-between small">
-            <span id="progressText">menyiapkan…</span>
-            <span id="progressCount">0/0</span>
-          </div>
-        </div>
-        <div class="btn-row">
-          <button class="secondary" id="pauseBtn" type="button" hidden>Jeda</button>
-          <button class="danger" id="stopBtn" type="button" hidden>Berhenti</button>
-        </div>
-      </div>
 
-      <div class="card">
-        <div class="card-label">BATCH</div>
-        <label class="field">
-          <span>Maksimal video per batch: <b id="batchVal">15</b></span>
-          <input id="batch" type="range" min="1" max="60" value="15">
-        </label>
-        <label class="field">
-          <span>Jeda antar video: <b id="gapVal">12</b> detik</span>
-          <input id="gap" type="range" min="4" max="45" value="12">
-          <small class="muted">10–15 detik = paling aman. Di bawah 6 detik berisiko.</small>
-        </label>
-        <label class="check">
-          <input type="checkbox" id="dryRun">
-          <span>Mode latihan (tidak menghapus, hanya mencatat)</span>
-        </label>
-        <label class="check">
-          <input type="checkbox" id="onlyReposts" checked>
-          <span>Hanya proses tab Repost di profil saya</span>
-        </label>
+      <div class="card mode-card">
+        <div class="card-label">MODE OTOMASI <span class="pill ok">DIREKOMENDASIKAN</span></div>
+        <p class="muted small" style="margin-top:0">
+          Unrepost membuka <b>halaman TikTok asli</b> di dalam aplikasi, lalu menekan tombol
+          «Hapus repost» satu per satu — persis seperti Anda melakukannya sendiri, hanya otomatis
+          dan perlahan. Tidak memakai API internal (yang ditolak TikTok).
+        </p>
+        <div id="domLoginBox" hidden>
+          <p class="muted small"><b>Langkah 1:</b> login dulu di halaman TikTok (Google/2FA didukung).</p>
+          <button class="primary" id="domLoginBtn" type="button">Buka login TikTok</button>
+        </div>
+        <div id="domRunBox">
+          <div class="row-between small" style="margin:10px 0 4px">
+            <span>Maks video: <b id="domBatchVal">15</b></span>
+            <span>Jeda: <b id="domGapVal">12</b> dtk</span>
+          </div>
+          <input id="domBatch" type="range" min="1" max="60" value="15">
+          <input id="domGap" type="range" min="5" max="45" value="12">
+          <label class="check"><input type="checkbox" id="domDry">
+            <span>Mode latihan (tidak menekan «Hapus»)</span></label>
+          <button class="primary big" id="domStartBtn" type="button">
+            <span id="domStartText">🗑  Mulai hapus repost otomatis</span>
+          </button>
+          <div class="btn-row">
+            <button class="danger" id="domStopBtn" type="button" hidden>Berhenti</button>
+          </div>
+          <div class="progress" id="domProgressWrap" hidden>
+            <div class="row-between small">
+              <span id="domProgressText">menyiapkan…</span>
+              <span id="domCount">0/0</span>
+            </div>
+          </div>
+          <p class="muted small" id="domNote">Siap. Pastikan Anda sudah login.</p>
+        </div>
       </div>
 
       <div class="card">
         <div class="card-label">LOG LANGSUNG</div>
-        <pre class="log" id="log">siap.</pre>
+        <pre class="log" id="domLog">siap.</pre>
+      </div>
+
+      <div class="card">
+        <div class="card-label">BANTU SAYA MEMPERBAIKI</div>
+        <p class="muted small">Kalau proses macet, tekan tombol ini lalu kirim hasilnya ke saya.
+          Isinya: snapshot halaman TikTok + log langkah (tanpa sandi).</p>
+        <button class="secondary" id="domProbe" type="button">Periksa halaman &amp; salin diagnostik</button>
+        <pre class="log" id="domProbeOut" hidden></pre>
+      </div>
+
+      <div class="card">
+        <div class="card-label">MODE API <span class="pill dry">EKSPERIMENTAL</span></div>
+        <p class="muted small" style="margin-top:0">
+          Mode lama: memanggil API JSON TikTok langsung. <b>Tidak bekerja</b> karena TikTok kini
+          mewajibkan tanda tangan (X-Bogus/a_bogus) pada setiap permintaan. Dibiarkan hanya untuk
+          uji coba.
+        </p>
+        <button class="secondary" id="toggleApi" type="button">Tampilkan mode API</button>
+        <div id="apiBox" hidden>
+          <label class="field">
+            <span>Maksimal video: <b id="batchVal">15</b></span>
+            <input id="batch" type="range" min="1" max="60" value="15">
+          </label>
+          <label class="field">
+            <span>Jeda: <b id="gapVal">12</b> detik</span>
+            <input id="gap" type="range" min="4" max="45" value="12">
+          </label>
+          <label class="check"><input type="checkbox" id="dryRun">
+            <span>Mode latihan</span></label>
+          <button class="secondary" id="cleanBtn" type="button">
+            <span id="cleanBtnText">Coba mode API</span>
+          </button>
+          <div class="card-label" style="margin-top:14px">LOG</div>
+          <pre class="log" id="log">siap.</pre>
+          <div class="progress" id="progressWrap" hidden>
+            <div class="bar"><div class="bar-fill" id="barFill"></div></div>
+            <div class="row-between small">
+              <span id="progressText">-</span><span id="progressCount">0/0</span>
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="secondary" id="pauseBtn" type="button" hidden>Jeda</button>
+            <button class="danger" id="stopBtn" type="button" hidden>Berhenti</button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -178,6 +221,13 @@
           <span>Getar tiap 5 video</span></label>
         <label class="check"><input type="checkbox" id="prefKeepAwake" checked>
           <span>Layar tetap menyala saat proses</span></label>
+      </div>
+
+      <div class="card">
+        <div class="card-label">SESI TIKTOK (MODE OTOMASI)</div>
+        <p class="muted small" id="domSessionInfo">memeriksa…</p>
+        <button class="secondary" id="domRelogin" type="button">Login / ganti akun</button>
+        <button class="secondary" id="domClearCookies" type="button">Hapus sesi TikTok di app ini</button>
       </div>
 
       <div class="card">

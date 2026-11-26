@@ -410,6 +410,122 @@
     return item && item.id ? ('#' + String(item.id).slice(-6)) : '#?';
   }
 
+  // =============================================================== MODE OTOMASI
+  // Menjalankan otomasi di halaman TikTok asli lewat jembatan native.
+  var dom = {
+    running: false,
+    batch: 15,
+    gap: 12,
+    dry: false,
+    deleted: 0,
+    target: 0,
+    log: []
+  };
+
+  function domLog(line) {
+    dom.log.push(line);
+    if (dom.log.length > 300) dom.log.shift();
+    var el = $('domLog');
+    if (el) {
+      var stamp = new Date().toLocaleTimeString('id-ID', { hour12: false });
+      el.textContent = (el.textContent === 'siap.' ? '' : el.textContent + '\n') + '[' + stamp + '] ' + line;
+      el.scrollTop = el.scrollHeight;
+    }
+  }
+
+  // Dipanggil native selama otomasi berjalan
+  window.UnrepostDomLog = function (line) { domLog(line); };
+  window.UnrepostDomProgress = function (text, note, deleted, finished, aborted) {
+    dom.deleted = deleted;
+    $('domProgressWrap').hidden = false;
+    $('domProgressText').textContent = aborted ? 'berhenti' : (finished ? 'selesai' : 'berjalan…');
+    $('domCount').textContent = deleted + '/' + dom.target;
+    $('domNote').textContent = (text || '') + (note ? ' · ' + note : '');
+    if (finished || aborted) {
+      dom.running = false;
+      $('domStartBtn').disabled = false;
+      $('domStartText').textContent = '🗑  Mulai hapus repost otomatis';
+      $('domStopBtn').hidden = true;
+      domLog((aborted ? 'DIHENTIKAN: ' : 'SELESAI: ') + (note || '') + ' · ' + deleted + ' repost');
+      if (native && native.keepAwake) native.keepAwake(false);
+      vibrate([50, 60, 50]);
+      saveDomRun(aborted ? 'aborted' : 'done');
+    }
+  };
+  window.UnrepostDomProbe = function (value) {
+    var out = $('domProbeOut');
+    out.hidden = false;
+    out.textContent = String(value);
+    domLog('probe: ' + value);
+    copyText(String(value) + '\n\n=== log ===\n' + dom.log.join('\n'));
+  };
+
+  function domSessionCheck() {
+    var ok = false;
+    try { ok = !!(native && native.hasTiktokSession && native.hasTiktokSession()); } catch (e) { ok = false; }
+    $('domLoginBox').hidden = ok;
+    $('domSessionInfo').textContent = ok
+      ? 'Sesi TikTok terdeteksi di aplikasi ini.'
+      : 'Belum ada sesi TikTok. Login lewat mode otomasi dulu.';
+    return ok;
+  }
+
+  function startDom() {
+    if (!native || !native.startDomClean) {
+      toast('Otomasi hanya tersedia di dalam aplikasi');
+      return;
+    }
+    var username = (session && session.username) || '';
+    if (!username) {
+      // coba ambil dari cookie/sesi native; kalau tidak ada, minta login
+      toast('Login TikTok dulu');
+      openTikTok(WEB_LOGIN_URL);
+      return;
+    }
+    dom.running = true;
+    dom.deleted = 0;
+    dom.target = dom.batch;
+    $('domStartBtn').disabled = true;
+    $('domStartText').textContent = '⏳  Bekerja di halaman TikTok…';
+    $('domStopBtn').hidden = false;
+    $('domProgressWrap').hidden = false;
+    $('domCount').textContent = '0/' + dom.target;
+    $('domLog').textContent = 'siap.';
+    domLog('mulai otomasi: ' + dom.batch + ' video · jeda ' + dom.gap + ' dtk' + (dom.dry ? ' · LATIHAN' : ''));
+    if (native.keepAwake) native.keepAwake(true);
+    native.startDomClean(dom.batch, dom.gap * 1000, dom.dry, username);
+  }
+
+  function stopDom() {
+    if (native && native.stopDomClean) native.stopDomClean();
+    dom.running = false;
+    $('domStartBtn').disabled = false;
+    $('domStartText').textContent = '🗑  Mulai hapus repost otomatis';
+    $('domStopBtn').hidden = true;
+    domLog('berhenti diminta');
+    if (native && native.keepAwake) native.keepAwake(false);
+  }
+
+  function saveDomRun(reason) {
+    var all = store(STORE.history) || [];
+    all.unshift({
+      ts: Date.now(), mode: 'dom', reason: reason, done: dom.deleted,
+      failed: 0, target: dom.target, dry: dom.dry,
+      account: (session && session.username) || '?', items: []
+    });
+    save(STORE.history, all.slice(0, 40));
+    renderHistory();
+  }
+
+  function copyText(text) {
+    var done = function () { toast('Disalin — tempel ke chat'); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done).catch(function () { fallbackCopy(text, done); });
+    } else {
+      fallbackCopy(text, done);
+    }
+  }
+
   // ------------------------------------------------------------- batch run
   function updateProgress() {
     var pct = runStats.target ? Math.min(100, Math.round(runStats.done / runStats.target * 100)) : 0;
@@ -545,10 +661,11 @@
       var pill = b.dry ? '<span class="pill dry">latihan</span>'
         : b.failed > 0 ? '<span class="pill bad">' + b.failed + ' gagal</span>'
           : '<span class="pill ok">bersih</span>';
+      var modePill = b.mode === 'dom' ? '<span class="pill dry">otomasi</span>' : '';
       var names = (b.items || []).slice(0, 6).map(function (i) {
         return '<div class="muted small">· ' + esc(i.desc || ('#' + String(i.id).slice(-6))) + (i.ok ? '' : ' ✕') + '</div>';
       }).join('');
-      return '<div class="batch"><b>' + b.done + '/' + b.target + ' repost</b>' + pill +
+      return '<div class="batch"><b>' + b.done + '/' + b.target + ' repost</b>' + pill + modePill +
         '<div class="meta">@' + esc(b.account) + ' · ' + fmt(b.ts) + ' · ' + esc(reasonLabel(b.reason)) + '</div>' +
         names + '</div>';
     }).join('');
@@ -568,6 +685,7 @@
       b.classList.toggle('active', b.dataset.tab === name);
     });
     if (name === 'history') renderHistory();
+    if (name === 'clean') domSessionCheck();
   }
 
   // -------------------------------------------------------------- settings
@@ -608,7 +726,7 @@
     $('webLoginCheck').onclick = function () {
       toast('Memeriksa sesi…');
       checkWebSession().then(function (s) {
-        if (s) { saveSession(s); afterLogin('website tiktok'); }
+        if (s) { saveSession(s); afterLogin('website tiktok'); domSessionCheck(); }
         else toast('Belum terdeteksi login. Coba login di halaman TikTok dulu.');
       }).catch(function () { toast('Belum bisa memeriksa sesi'); });
     };
@@ -631,6 +749,41 @@
     $('prefNotify').onchange = function () { settings.notify = this.checked; saveSettings(); };
     $('prefVibrate').onchange = function () { settings.vibrate = this.checked; saveSettings(); };
     $('prefKeepAwake').onchange = function () { settings.keepAwake = this.checked; saveSettings(); };
+
+    // ---- mode otomasi (DOM)
+    $('domLoginBtn').onclick = function () { openTikTok(WEB_LOGIN_URL); };
+    $('domStartBtn').onclick = startDom;
+    $('domStopBtn').onclick = stopDom;
+    $('domBatch').oninput = function () {
+      dom.batch = parseInt(this.value, 10);
+      $('domBatchVal').textContent = dom.batch;
+    };
+    $('domGap').oninput = function () {
+      dom.gap = parseInt(this.value, 10);
+      $('domGapVal').textContent = dom.gap;
+    };
+    $('domDry').onchange = function () { dom.dry = this.checked; };
+    $('domProbe').onclick = function () {
+      if (native && native.probeDom) {
+        toast('Memeriksa halaman TikTok…');
+        native.probeDom();
+      } else {
+        toast('Hanya tersedia di dalam aplikasi');
+      }
+    };
+    $('domRelogin').onclick = function () { openTikTok(WEB_LOGIN_URL); };
+    $('domClearCookies').onclick = function () {
+      if (native && native.clearTiktokSession) native.clearTiktokSession();
+      clearSession();
+      refreshSessionCard();
+      domSessionCheck();
+      toast('Sesi TikTok di app dihapus');
+    };
+    $('toggleApi').onclick = function () {
+      var box = $('apiBox');
+      box.hidden = !box.hidden;
+      this.textContent = box.hidden ? 'Tampilkan mode API' : 'Sembunyikan mode API';
+    };
 
     $('cleanBtn').onclick = startBatch;
     $('pauseBtn').onclick = function () {
@@ -755,6 +908,8 @@
     refreshSessionCard();
     renderHistory();
     renderDiagnostics();
+    if ($('domBatch')) { $('domBatchVal').textContent = dom.batch; $('domGapVal').textContent = dom.gap; }
+    domSessionCheck();
     go(session ? 'app' : 'login');
 
     // Jangan biarkan satu error kecil menutup aplikasi.

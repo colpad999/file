@@ -31,13 +31,14 @@ import android.widget.Toast;
  * <p>Situsnya sendiri yang mengurus login & proses hapus repost lewat sesi
  * TikTok. Tidak ada izin aksesibilitas yang perlu diaktifkan.</p>
  */
-public class WebAppActivity extends Activity {
+public class WebAppActivity extends Activity implements DomRunner.Host {
 
     private WebView web;
     private FrameLayout root;
     private WebView tiktokWeb;
     private final android.os.Handler main = new android.os.Handler(android.os.Looper.getMainLooper());
     private boolean renderedCrash;
+    private DomRunner domRunner;
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
@@ -174,6 +175,11 @@ public class WebAppActivity extends Activity {
                 cm.setAcceptThirdPartyCookies(tiktokWeb, true);
             }
             tiktokWeb.setBackgroundColor(Color.parseColor("#000000"));
+            // Jembatan untuk snapshot DOM (dipakai otomasi "hapus repost").
+            if (domRunner == null) {
+                domRunner = new DomRunner(this, this, 25, 12000L, false, "");
+            }
+            tiktokWeb.addJavascriptInterface(domRunner.new Bridge(), "UnrepostDom");
             tiktokWeb.setWebChromeClient(new MyChromeClient());
             tiktokWeb.setWebViewClient(new WebViewClient() {
                 @Override
@@ -184,7 +190,14 @@ public class WebAppActivity extends Activity {
                 @Override
                 public void onPageFinished(WebView view, String url) {
                     super.onPageFinished(view, url);
-                    CookieManager.getInstance().flush();
+                    // suntikkan snapshoter DOM setiap halaman TikTok selesai dimuat
+                    try {
+                        view.evaluateJavascript(DomRunner.bootstrapScript(WebAppActivity.this), null);
+                    } catch (Exception ignored) {
+                    }
+                    if (domRunner != null) {
+                        domRunner.snapNow();
+                    }
                 }
             });
             root.addView(tiktokWeb, new FrameLayout.LayoutParams(
@@ -276,6 +289,99 @@ public class WebAppActivity extends Activity {
         }
     }
 
+    // ------------------------------------------------------- DomRunner.Host
+
+    @Override
+    public void runJs(final String script, final ValueCallback<String> callback) {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                WebView target = tiktokWeb != null ? tiktokWeb : web;
+                if (target == null) {
+                    if (callback != null) {
+                        callback.onReceiveValue("err:no-webview");
+                    }
+                    return;
+                }
+                try {
+                    target.evaluateJavascript(script == null ? "null" : script, callback);
+                } catch (Exception e) {
+                    if (callback != null) {
+                        callback.onReceiveValue("err:" + e.getClass().getSimpleName());
+                    }
+                }
+            }
+        });
+    }
+
+    @Override
+    public void openUrl(final String url) {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                if (tiktokWeb == null) {
+                    openTikTok(url);
+                } else {
+                    tiktokWeb.loadUrl(url);
+                }
+            }
+        });
+    }
+
+    @Override
+    public boolean isLoading() {
+        try {
+            return tiktokWeb != null && tiktokWeb.getProgress() < 100;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    @Override
+    public void onProgress(final String text, final String note, final int deleted,
+                           final boolean finished, final boolean aborted) {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                js2("window.UnrepostDomProgress && window.UnrepostDomProgress("
+                        + jsString(text) + "," + jsString(note == null ? "" : note) + ","
+                        + deleted + "," + finished + "," + aborted + ");");
+            }
+        });
+    }
+
+    @Override
+    public void onLog(final String line) {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                js2("window.UnrepostDomLog && window.UnrepostDomLog(" + jsString(line) + ");");
+            }
+        });
+    }
+
+    /** Jalankan JS di WebView utama (UI situs Unrepost), aman bila sudah hilang. */
+    private void js2(String script) {
+        try {
+            if (web != null) {
+                web.evaluateJavascript(script, null);
+            }
+        } catch (Exception ignored) {
+        }
+    }
+
+    private void toastUi(final String msg) {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    Toast.makeText(WebAppActivity.this, msg, Toast.LENGTH_SHORT).show();
+                } catch (Exception ignored) {
+                }
+            }
+        });
+    }
+
     // ---------------------------------------------------------------- bridge
 
     /** Jembatan minimal untuk situs lokal (tidak mengekspos apa pun yang sensitif). */
@@ -315,6 +421,77 @@ public class WebAppActivity extends Activity {
                     Toast.makeText(activity, title + ": " + body, Toast.LENGTH_LONG).show();
                 }
             });
+        }
+
+        /** Mulai otomasi "hapus repost" (DOM) di WebView TikTok. */
+        @JavascriptInterface
+        public boolean startDomClean(final int maxDeletes, final int gapMs,
+                                     final boolean dryRun, final String username) {
+            activity.runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        if (activity.domRunner != null) {
+                            activity.domRunner.stop();
+                        }
+                        activity.domRunner = new DomRunner(activity, activity, maxDeletes,
+                                gapMs, dryRun, username);
+                        if (activity.tiktokWeb != null) {
+                            activity.tiktokWeb.addJavascriptInterface(
+                                    activity.domRunner.new Bridge(), "UnrepostDom");
+                        }
+                        activity.openTikTok("https://www.tiktok.com/@" + username
+                                + "?lang=id");
+                        activity.domRunner.start();
+                    } catch (Exception e) {
+                        activity.toastUi("Gagal memulai: " + e.getClass().getSimpleName());
+                    }
+                }
+            });
+            return true;
+        }
+
+        @JavascriptInterface
+        public void stopDomClean() {
+            activity.runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    if (activity.domRunner != null) {
+                        activity.domRunner.stop();
+                    }
+                }
+            });
+        }
+
+        /** Apakah cookie sesi TikTok sudah ada (sudah login). */
+        @JavascriptInterface
+        public boolean hasTiktokSession() {
+            return DomRunner.hasSession(activity);
+        }
+
+        /** Probe: apakah snapshoter DOM terpasang di halaman TikTok aktif. */
+        @JavascriptInterface
+        public void probeDom() {
+            activity.runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    if (activity.domRunner == null) {
+                        activity.domRunner = new DomRunner(activity, activity, 10, 12000L, true, "");
+                    }
+                    activity.domRunner.probe(new ValueCallback<String>() {
+                        @Override
+                        public void onReceiveValue(String value) {
+                            activity.js2("window.UnrepostDomProbe && window.UnrepostDomProbe("
+                                    + jsString(value == null ? "null" : value) + ");");
+                        }
+                    });
+                }
+            });
+        }
+
+        @JavascriptInterface
+        public void clearTiktokSession() {
+            DomRunner.clearSession();
         }
 
         @JavascriptInterface

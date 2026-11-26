@@ -132,7 +132,12 @@ sandbox.window.UnrepostNative = {
   closeTikTok: () => nativeCalls.push(['closeTikTok']),
   keepAwake: on => nativeCalls.push(['keepAwake', on]),
   notify: (t, b) => nativeCalls.push(['notify', t, b]),
-  version: () => '2.1',
+  version: () => '2.3',
+  hasTiktokSession: () => !!sandbox.sessionStorage.getItem('ur_session_v1'),
+  startDomClean: (b, g, d, u) => nativeCalls.push(['startDomClean', b, g, d, u]),
+  stopDomClean: () => nativeCalls.push(['stopDomClean']),
+  probeDom: () => nativeCalls.push(['probeDom']),
+  clearTiktokSession: () => nativeCalls.push(['clearTiktokSession']),
   // meniru jembatan native: HTTP dilakukan "di luar" JS, hasil dikembalikan async
   api: (method, url, body, id) => {
     fakeFetch(url, { method, body }).then(resp => {
@@ -161,6 +166,10 @@ vm.runInContext(fs.readFileSync(APP, 'utf8'), ctx, { filename: 'app.js' });
 const ur = sandbox.window.Unrepost;
 
 function tick(ms) { return new Promise(r => setTimeout(r, ms || 0)); }
+function switchTabForTest(name) {
+  const tabs = { clean: () => { $('panel-clean').hidden = false; $('panel-history').hidden = true; $('panel-settings').hidden = true; } };
+  tabs.clean();
+}
 
 // ------------------------------------------------------------------ tests
 (async function main() {
@@ -281,6 +290,34 @@ function tick(ms) { return new Promise(r => setTimeout(r, ms || 0)); }
   $('webLoginCheck').click();
   await tick(40);
   check('cek sesi website: akun terdeteksi', /akunweb|Web/.test($('whoName').textContent));
+
+  // ---- mode otomasi (DOM)
+  $('view-app').hidden = false;
+  switchTabForTest('clean');
+  $('domBatch').value = '7'; $('domBatch').oninput.call($('domBatch'));
+  $('domGap').value = '9'; $('domGap').oninput.call($('domGap'));
+  check('otomasi: slider tersimpan', $('domBatchVal').textContent === '7' && $('domGapVal').textContent === '9');
+  $('domStartBtn').click();
+  await tick(30);
+  var call = nativeCalls.filter(c => c[0] === 'startDomClean').pop();
+  check('otomasi: memulai lewat jembatan native', !!call, JSON.stringify(call));
+  check('otomasi: parameter benar (7 video, 9000 ms)', call && call[1] === 7 && call[2] === 9000, JSON.stringify(call));
+  check('otomasi: tombol jadi nonaktif', $('domStartBtn').disabled === true);
+  // native melaporkan progres
+  sandbox.window.UnrepostDomProgress('HAPUS 1/7 · langkah 6/8', 'repost dihapus', 1, false, false);
+  check('otomasi: progres dari native tampil', /1\/7/.test($('domCount').textContent));
+  sandbox.window.UnrepostDomLog('ketuk "hapus repost"');
+  check('otomasi: log native masuk', /hapus repost/.test($('domLog').textContent));
+  sandbox.window.UnrepostDomProgress('HAPUS 7/7', 'batas tercapai', 7, true, false);
+  check('otomasi: selesai -> tombol aktif lagi', $('domStartBtn').disabled === false);
+  check('otomasi: riwayat mode otomasi tersimpan', (() => {
+    var h = JSON.parse(sandbox.localStorage.getItem('ur_history_v1') || '[]');
+    return h.some(x => x.mode === 'dom' && x.done === 7);
+  })());
+  $('domStopBtn').hidden = false;
+  $('domStopBtn').click();
+  await tick(10);
+  check('otomasi: tombol berhenti memanggil native', nativeCalls.some(c => c[0] === 'stopDomClean'));
 
   // ---- logout
   $('logoutBtn').click();

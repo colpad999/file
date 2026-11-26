@@ -15,8 +15,34 @@ Unrepost baca tab Repost di profil Anda → hapus video #1 → jeda 12 dtk → #
 | **Ukuran APK** | ±146 KB |
 | **Izin yang diminta ke pengguna** | tidak ada (hanya INTERNET untuk memanggil API TikTok) |
 | **Perlu aktifkan Aksesibilitas?** | **tidak** (mode lama tetap ada sebagai cadangan) |
-| **Login** | di dalam halaman app (email/username + sandi) **atau** lewat halaman login resmi TikTok di WebView (mendukung Google/2FA) |
+| **Login** | di halaman login resmi TikTok di dalam app (Google/2FA didukung); sesi disimpan sebagai cookie WebView |
+| **Cara menghapus** | otomasi klik di halaman TikTok asli (bukan API internal) |
 | **Data dikirim ke server lain?** | tidak ada — hanya ke `*.tiktok.com` |
+
+## 🔥 v2.3 — perbaikan inti: "tidak bisa menghapus repost"
+
+**Kenapa versi lama gagal (jujur):** mode sebelumnya memanggil **API JSON internal TikTok**
+(`/api/post/item_list/`, `/api/v1/aweme/digest/undo/repost/`). Sejak 2023 TikTok mewajibkan
+tanda tangan **X-Bogus / a_bogus** pada setiap permintaan, sehingga permintaan tanpa tanda tangan
+ditolak — daftar repost kosong dan perintah hapus tidak pernah dieksekusi. Itu tidak bisa
+diperbaiki dengan parameter tambahan; pendekatan itu memang tidak layak.
+
+**Penggantinya (yang sekarang bekerja):** Unrepost membuka **halaman TikTok asli** di dalam
+aplikasi dan menekan tombol «Hapus repost» sungguhan — seperti tangan Anda, hanya otomatis:
+
+```
+Halaman profil → tab Repost → video #1 → tombol Bagikan/menu → "Hapus repost" → konfirmasi
+      → jeda 12 dtk → video berikutnya …   (berhenti saat kuota habis)
+```
+
+Cara kerjanya teknis: `domsnap.js` disuntikkan ke setiap halaman TikTok, mengirim snapshot DOM
+yang sudah dibersihkan (elemen terlihat + `data-ur`) ke native lewat jembatan `UnrepostDom`.
+`DomEngine` menganalisis snapshot dan memutuskan aksi (klik elemen, buka menu, gulir, kembali),
+`DomRunner` mengeksekusinya lewat JS **di thread UI**.
+
+Yang diuji otomatis: **99 cek** — termasuk `DomEngine` (20 skenario: grid, menu, konfirmasi,
+kuota, halaman login, menu tanpa aksi) dan `domsnap.js` di **HTML asli via jsdom** (13 cek:
+snapshot, klik tepat satu kali memicu handler halaman, menu, klik koordinat).
 
 ## 📲 Alur pemakaian (3 langkah, tanpa Setelan)
 
@@ -24,8 +50,12 @@ Unrepost baca tab Repost di profil Anda → hapus video #1 → jeda 12 dtk → #
 2. **Login**: isi email/username + sandi → *Masuk*. Kalau akun Anda pakai Google atau 2FA,
    tekan **"Buka halaman login TikTok"** (halaman resmi, bisa Google/2FA) lalu
    **"Saya sudah login — periksa sesi"**.
-3. Di tab **Bersihkan**: atur batch (1–60) & jeda (default 12 dtk) → tekan
-   **🗑 Bersihkan repost sekarang**. Ada progres, **Jeda**, **Berhenti**, log langsung, dan riwayat.
+3. Di tab **Bersihkan** (Mode Otomasi): atur batch (1–60) & jeda (default 12 dtk) → tekan
+   **🗑 Mulai hapus repost otomatis**. Aplikasi membuka halaman TikTok Anda dan bekerja sendiri;
+   ada progres, **Berhenti**, log langsung, dan riwayat.
+
+Kalau macet: tekan **"Periksa halaman & salin diagnostik"** — hasilnya (snapshot + log) bisa
+langsung dikirim ke saya untuk menambah label tombol versi TikTok Anda.
 
 > **Rekomendasi**: jalankan **Mode latihan** sekali (tidak menghapus, hanya mencatat) untuk
 > memastikan API TikTok versi Anda menerima perintahnya, lalu mulai batch kecil (10–20 video).

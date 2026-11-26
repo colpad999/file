@@ -15,12 +15,22 @@ rm -rf "$OUT" && mkdir -p "$OUT"
   -d "$OUT" \
   app/src/com/unrepost/app/RepostDetector.java \
   app/src/com/unrepost/app/CleanerEngine.java \
+  app/src/com/unrepost/app/DomEngine.java \
   tools/test/com/unrepost/app/DetectorTest.java \
-  tools/test/com/unrepost/app/CleanerEngineTest.java
+  tools/test/com/unrepost/app/CleanerEngineTest.java \
+  tools/test/com/unrepost/app/DomEngineTest.java
 "$JAVA" -cp "$OUT" com.unrepost.app.DetectorTest
 echo
 "$JAVA" -cp "$OUT" com.unrepost.app.CleanerEngineTest
 echo
+"$JAVA" -cp "$OUT" com.unrepost.app.DomEngineTest
+echo
 if [ -d "$ROOT/web-test" ] && command -v node >/dev/null 2>&1; then
   (cd "$ROOT/web-test" && node run-tests.js)
+  echo
+  if [ -d "$ROOT/node_modules/jsdom" ]; then
+    (cd "$ROOT/web-test" && node dom-test.js)
+  else
+    echo "  (dom-test dilewati: jalankan 'npm i -D jsdom' untuk menguji domsnap.js)"
+  fi
 fi
