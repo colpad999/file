@@ -26,64 +26,73 @@
   <!-- ============================ VIEW: LOGIN ============================ -->
   <section class="view" id="view-login">
     <div class="hero">
-      <h1>Hapus repost TikTok<br>tanpa nyentuh Setelan.</h1>
-      <p class="lede">Login sekali di halaman ini. Unrepost akan menghapus repost di profil Anda
-        satu per satu, perlahan, sampai bersih.</p>
+      <h1>Masuk ke TikTok Anda</h1>
+      <p class="lede">Login <b>sekali</b> di halaman resmi TikTok yang terbuka di dalam aplikasi ini.
+        Setelah itu Unrepost bisa menghapus repost di profil Anda otomatis.</p>
     </div>
 
+    <!-- status langkah, selalu kelihatan -->
+    <div class="card steps-card">
+      <div class="card-label">STATUS</div>
+      <div class="step-row" id="step1">
+        <span class="step-num">1</span>
+        <span class="step-text">Login TikTok</span>
+        <span class="step-state" id="step1State">belum</span>
+      </div>
+      <div class="step-row" id="step2">
+        <span class="step-num">2</span>
+        <span class="step-text">Kembali ke Unrepost (otomatis terdeteksi)</span>
+        <span class="step-state" id="step2State">-</span>
+      </div>
+      <div class="step-row" id="step3">
+        <span class="step-num">3</span>
+        <span class="step-text">Mulai hapus repost</span>
+        <span class="step-state" id="step3State">-</span>
+      </div>
+    </div>
+
+    <!-- tombol utama -->
     <div class="card login-card">
-      <div class="card-label">CARA 1 · PALING AMAN (DISARANKAN)</div>
-      <p class="muted small" style="margin-top:0">Login di <b>halaman resmi TikTok</b> yang terbuka
-        di dalam aplikasi. Mendukung Google, email, nomor HP, dan verifikasi 2 langkah —
-        sandi Anda diketik langsung di halaman TikTok, bukan di Unrepost.</p>
-      <button class="primary" id="webLoginBtn" type="button">Buka login resmi TikTok →</button>
-      <button class="secondary" id="webLoginCheck" type="button">Saya sudah login — periksa sesi</button>
+      <button class="primary big" id="webLoginBtn" type="button">Buka halaman login TikTok →</button>
+      <p class="muted small" style="margin:10px 0 0">
+        Halaman resmi <b>tiktok.com/login</b> terbuka di dalam aplikasi. Login di sana (email,
+        nomor HP, Google, atau 2FA). Setelah selesai, tekan <b>tombol kembali</b> — Unrepost
+        otomatis membaca sesi Anda.
+      </p>
+      <button class="secondary" id="webLoginCheck" type="button">Saya sudah login — periksa sekarang</button>
       <div class="err" id="loginErr" hidden></div>
     </div>
 
-    <div class="card">
-      <div class="row-between">
-        <div class="card-label" style="margin:0">CARA 2 · FORM CEPAT (OPSIONAL)</div>
-        <button class="link small" id="quickToggle" type="button">buka</button>
-      </div>
-      <div id="quickBox" hidden>
-        <p class="muted small">Isi langsung di sini. Tidak bisa dipakai untuk akun Google, dan
-          tidak melewati 2FA.</p>
-        <label class="field">
-          <span>Email / username / nomor HP</span>
-          <input id="identifier" type="text" autocomplete="username" autocapitalize="none"
-                 spellcheck="false" placeholder="contoh: @namaakun">
-        </label>
-        <label class="field">
-          <span>Sandi</span>
-          <div class="pass-wrap">
-            <input id="password" type="password" autocomplete="current-password"
-                   placeholder="sandi TikTok Anda">
-            <button class="peek" id="peekBtn" type="button" aria-label="lihat sandi">👁</button>
-          </div>
-        </label>
-        <label class="check">
-          <input type="checkbox" id="remember" checked>
-          <span>Ingat perangkat ini</span>
-        </label>
-        <button class="primary" id="loginBtn" type="button">Masuk →</button>
-      </div>
-    </div>
-
-    <div class="card warn-card">
-      <div class="card-label">SEBELUM MULAI</div>
+    <div class="card tip-card">
+      <div class="card-label">TIPS</div>
       <ul class="bullets">
-        <li><b>Tidak bisa login lewat Google</b> di jalur cepat (Google memblokir browser dalam
-          aplikasi). Pakai jalur <b>website TikTok</b> untuk akun Google.</li>
-        <li>Batasi <b>10–20 video per batch</b> dengan jeda wajar. Otomasi berlebihan berisiko
-          ditandai bot oleh TikTok.</li>
-        <li>Unrepost hanya menyentuh tab <b>Repost di profil Anda</b> — bukan video unggahan,
-          bukan feed.</li>
+        <li><b>Google/2FA:</b> tetap bisa — login lewat halaman resmi di atas, bukan form cepat.</li>
+        <li><b>Halaman TikTok tidak menutup?</b> Tekan tombol panah/back HP; Anda akan kembali ke
+          Unrepost dengan status sudah terisi.</li>
+        <li><b>Sandi:</b> diketik langsung di halaman TikTok. Unrepost tidak pernah menyimpannya.</li>
       </ul>
     </div>
 
-    <p class="foot muted small">Tidak berafiliasi dengan TikTok/ByteDance. Gunakan untuk akun
-      Anda sendiri.</p>
+    <details class="card adv-card">
+      <summary>Cara lain: form cepat (opsional, tanpa Google/2FA)</summary>
+      <p class="muted small">Isi langsung di sini. Tidak bisa untuk akun Google dan tidak melewati 2FA.
+        Kalau ragu, pakai tombol login resmi di atas.</p>
+      <label class="field">
+        <span>Email / username / nomor HP</span>
+        <input id="identifier" type="text" autocomplete="username" autocapitalize="none"
+               spellcheck="false" placeholder="contoh: @namaakun">
+      </label>
+      <label class="field">
+        <span>Sandi</span>
+        <div class="pass-wrap">
+          <input id="password" type="password" autocomplete="current-password" placeholder="sandi TikTok">
+          <button class="peek" id="peekBtn" type="button" aria-label="lihat sandi">👁</button>
+        </div>
+      </label>
+      <button class="secondary" id="loginBtn" type="button">Masuk lewat form cepat</button>
+    </details>
+
+    <p class="foot muted small">Tidak berafiliasi dengan TikTok/ByteDance. Gunakan untuk akun Anda sendiri.</p>
   </section>
 
   <!-- ============================ VIEW: DASHBOARD ============================ -->

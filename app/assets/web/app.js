@@ -141,11 +141,13 @@
 
   function errorMessage(out) {
     if (!out) return 'Tidak ada respons dari TikTok.';
-    if (out.status === 0) return 'Tidak ada koneksi internet.';
+    if (out.status === 0) {
+      return 'Tidak bisa menghubungi TikTok. Pakai tombol login resmi di atas (lebih aman).';
+    }
     var d = out.data || {};
     if (d.message) return d.message;
     if (d.data && d.data.description) return d.data.description;
-    if (out.status === 403) return 'Diblokir TikTok (403). Coba jalur website + login manual.';
+    if (out.status === 403) return 'Form cepat diblokir TikTok (403). Pakai tombol login resmi di atas.';
     if (out.status === 429) return 'Terlalu banyak percobaan. Tunggu beberapa menit.';
     if (out.status >= 500) return 'Server TikTok bermasalah (' + out.status + ').';
     return 'Login gagal (HTTP ' + out.status + '). Cek username/sandi.';
@@ -460,6 +462,51 @@
     copyText(String(value) + '\n\n=== log ===\n' + dom.log.join('\n'));
   };
 
+  /** Perbarui daftar langkah login (1: belum/aktif/selesai, 2 & 3). */
+  function renderLoginSteps() {
+    if (!$('step1')) return;
+    var hasSession = false;
+    try { hasSession = !!(native && native.hasTiktokSession && native.hasTiktokSession()); } catch (e) {}
+    var loggedIn = hasSession || !!session;
+
+    setStep('step1', 'step1State', loggedIn ? 'selesai' : 'waiting',
+      loggedIn ? '✓ sudah login' : 'menunggu login');
+    setStep('step2', 'step2State', loggedIn ? 'selesai' : '',
+      loggedIn ? '✓ terdeteksi' : '-');
+    setStep('step3', 'step3State', loggedIn ? 'active' : '',
+      loggedIn ? 'siap dimulai →' : '-');
+  }
+
+  function setStep(rowId, stateId, extraClass, label) {
+    var row = $(rowId);
+    var st = $(stateId);
+    if (!row || !st) return;
+    row.className = 'step-row' + (extraClass ? ' ' + extraClass : '');
+    st.textContent = label;
+  }
+
+  /** Dipanggil native saat Activity kembali aktif (mis. setelah login TikTok). */
+  window.UnrepostResume = function () {
+    var ok = domSessionCheck();
+    renderLoginSteps();
+    if (ok) {
+      // ambil username dari cookie TikTok bila belum ada
+      if (!session && native && native.tiktokUsername) {
+        try {
+          var u = native.tiktokUsername();
+          if (u) saveSession({ username: u, nickname: '', ts: Date.now() });
+        } catch (e) { /* abaikan */ }
+      }
+      if (session) {
+        refreshSessionCard();
+        if (page.name === 'login') { go('app'); switchTab('clean'); }
+        toast('Login terdeteksi — siap dipakai');
+      } else {
+        toast('Sesi TikTok terdeteksi — buka Pengaturan untuk nama akun');
+      }
+    }
+  };
+
   function domSessionCheck() {
     var ok = false;
     try { ok = !!(native && native.hasTiktokSession && native.hasTiktokSession()); } catch (e) { ok = false; }
@@ -714,17 +761,21 @@
       var p = $('password');
       p.type = p.type === 'password' ? 'text' : 'password';
     };
-    $('quickToggle').onclick = function () {
-      var box = $('quickBox');
-      box.hidden = !box.hidden;
-      this.textContent = box.hidden ? 'buka' : 'tutup';
-    };
     $('webLoginBtn').onclick = function () {
       openTikTok(WEB_LOGIN_URL);
       toast('Login di halaman TikTok, lalu kembali');
     };
     $('webLoginCheck').onclick = function () {
       toast('Memeriksa sesi…');
+      if (native && native.hasTiktokSession && native.hasTiktokSession()) {
+        var u = '';
+        try { u = (native.tiktokUsername && native.tiktokUsername()) || ''; } catch (e) {}
+        if (u) saveSession({ username: u, nickname: '', ts: Date.now() });
+        renderLoginSteps();
+        afterLogin('sesi TikTok di aplikasi');
+        domSessionCheck();
+        return;
+      }
       checkWebSession().then(function (s) {
         if (s) { saveSession(s); afterLogin('website tiktok'); domSessionCheck(); }
         else toast('Belum terdeteksi login. Coba login di halaman TikTok dulu.');
@@ -777,6 +828,7 @@
       clearSession();
       refreshSessionCard();
       domSessionCheck();
+    renderLoginSteps();
       toast('Sesi TikTok di app dihapus');
     };
     $('toggleApi').onclick = function () {

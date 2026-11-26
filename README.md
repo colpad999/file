@@ -44,6 +44,21 @@ Yang diuji otomatis: **99 cek** — termasuk `DomEngine` (20 skenario: grid, men
 kuota, halaman login, menu tanpa aksi) dan `domsnap.js` di **HTML asli via jsdom** (13 cek:
 snapshot, klik tepat satu kali memicu handler halaman, menu, klik koordinat).
 
+## 🔑 v2.4 — layar login diperjelas
+
+Sebelumnya layar login membingungkan (dua cara berdampingan, tanpa status). Sekarang:
+
+- **Satu tombol utama**: "Buka halaman login TikTok →" (halaman resmi di dalam aplikasi).
+- **Daftar status 3 langkah** yang selalu terlihat:
+  `1 Login TikTok → 2 Kembali ke Unrepost (otomatis) → 3 Mulai hapus repost`,
+  masing-masing berubah **belum → ✓ selesai**.
+- **Deteksi otomatis**: begitu Anda kembali dari halaman TikTok (back / Activity resume),
+  aplikasi memeriksa cookie sesi dan langsung menampilkan **"Login terdeteksi — siap dipakai"**,
+  mengisi nama akun, lalu membuka dashboard sendiri.
+- **Tombol cadangan** "Saya sudah login — periksa sekarang" bila deteksi otomatis belum jalan.
+- **Form cepat** (email+sandi) dipindah ke dalam lipatan "Cara lain…" — jelas ditandai opsional
+  dan tidak bisa untuk akun Google/2FA.
+
 ## 📲 Alur pemakaian (3 langkah, tanpa Setelan)
 
 1. Instal APK → buka **Unrepost** (langsung tampil halaman situs, bukan menu Android).

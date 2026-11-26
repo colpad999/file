@@ -111,6 +111,22 @@ public class WebAppActivity extends Activity implements DomRunner.Host {
     }
 
     @Override
+    protected void onResume() {
+        super.onResume();
+        // Beri tahu situs: pengguna mungkin baru kembali dari halaman login TikTok.
+        main.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    CookieManager.getInstance();
+                } catch (Exception ignored) {
+                }
+                js2("window.UnrepostResume && window.UnrepostResume();");
+            }
+        }, 600L);
+    }
+
+    @Override
     protected void onDestroy() {
         try {
             if (tiktokWeb != null) {
@@ -190,6 +206,9 @@ public class WebAppActivity extends Activity implements DomRunner.Host {
                 @Override
                 public void onPageFinished(WebView view, String url) {
                     super.onPageFinished(view, url);
+                    DomRunner.noteUrl(url);
+                    // setelah login selesai, UI situs langsung tahu
+                    js2("window.UnrepostResume && window.UnrepostResume();");
                     // suntikkan snapshoter DOM setiap halaman TikTok selesai dimuat
                     try {
                         view.evaluateJavascript(DomRunner.bootstrapScript(WebAppActivity.this), null);
@@ -467,6 +486,12 @@ public class WebAppActivity extends Activity implements DomRunner.Host {
         @JavascriptInterface
         public boolean hasTiktokSession() {
             return DomRunner.hasSession(activity);
+        }
+
+        /** Nama akun TikTok yang login (dari cookie / halaman profil). Boleh kosong. */
+        @JavascriptInterface
+        public String tiktokUsername() {
+            return DomRunner.readUsername(activity);
         }
 
         /** Probe: apakah snapshoter DOM terpasang di halaman TikTok aktif. */

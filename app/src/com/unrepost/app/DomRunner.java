@@ -282,6 +282,58 @@ public final class DomRunner {
         }
     }
 
+    /** Ambil nama akun dari cookie TikTok ("store-idc" dsb) atau dari URL profil terakhir. */
+    public static String readUsername(Context c) {
+        try {
+            String cookie = CookieManager.getInstance().getCookie("https://www.tiktok.com");
+            if (cookie != null) {
+                java.util.regex.Matcher m = java.util.regex.Pattern
+                        .compile("(?i)uid_tt=[^;]+").matcher(cookie);
+                // TikTok menyimpan nama akun di cookie "tt_chain_token" tidak selalu;
+                // cara paling andal: halaman profil yang terakhir dibuka.
+                if (m.find()) {
+                    // tidak dipakai untuk nama, hanya memastikan sesi ada
+                }
+            }
+            String last = LastProfile.get();
+            if (last != null && !last.isEmpty()) {
+                return last;
+            }
+        } catch (Exception ignored) {
+        }
+        return "";
+    }
+
+    /** Menyimpan nama akun yang terakhir terlihat di URL profil TikTok. */
+    public static final class LastProfile {
+        private static volatile String value = "";
+
+        private LastProfile() {
+        }
+
+        public static void set(String username) {
+            if (username != null && !username.isEmpty()) {
+                value = username.replace("@", "");
+            }
+        }
+
+        public static String get() {
+            return value;
+        }
+    }
+
+    /** Catat nama akun bila URL berupa /@nama/... */
+    public static void noteUrl(String url) {
+        if (url == null) {
+            return;
+        }
+        java.util.regex.Matcher m = java.util.regex.Pattern
+                .compile("tiktok\\.com/@([A-Za-z0-9._]+)").matcher(url);
+        if (m.find()) {
+            LastProfile.set(m.group(1));
+        }
+    }
+
     public static void clearSession() {
         try {
             CookieManager cm = CookieManager.getInstance();

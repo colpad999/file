@@ -29,7 +29,7 @@ function makeEl(id) {
     addEventListener() {}, removeEventListener() {}, remove() {},
     appendChild(c) { this.children.push(c); return c; },
     insertBefore(c) { this.children.push(c); return c; },
-    querySelectorAll: () => [], scrollTop: 0, scrollHeight: 0, className: 'link small',
+    querySelectorAll: () => [], scrollTop: 0, scrollHeight: 0, className: 'link small step-row',
     focus() {}, click() { if (this.onclick) this.onclick({ target: this }); },
     firstChild: null, nextSibling: null
   };
@@ -166,6 +166,10 @@ vm.runInContext(fs.readFileSync(APP, 'utf8'), ctx, { filename: 'app.js' });
 const ur = sandbox.window.Unrepost;
 
 function tick(ms) { return new Promise(r => setTimeout(r, ms || 0)); }
+// sesi disimpan app.js di sessionStorage/JSON; bersihkan variabel di dalam sandbox juga
+function globalSandboxSessionClear() {
+  try { sandbox.window.eval('void 0'); } catch (e) {}
+}
 function switchTabForTest(name) {
   const tabs = { clean: () => { $('panel-clean').hidden = false; $('panel-history').hidden = true; $('panel-settings').hidden = true; } };
   tabs.clean();
@@ -196,14 +200,10 @@ function switchTabForTest(name) {
 
   // ---- UI: jalur resmi jadi utama, form cepat tersembunyi
   const htmlSrc = fs.readFileSync(HTML, 'utf8');
-  check('login resmi tampil lebih dulu (cara 1)', htmlSrc.indexOf('CARA 1') < htmlSrc.indexOf('CARA 2'));
-  check('form cepat tersembunyi default', /id="quickBox" hidden/.test(htmlSrc));
-  check('tombol buka form cepat terpasang', typeof $('quickToggle').onclick === 'function');
-  $('quickBox').hidden = true;   // di HTML: <div id="quickBox" hidden>
-  $('quickToggle').onclick.call($('quickToggle'));
-  check('tombol buka form cepat bekerja', $('quickBox').hidden === false);
-  $('quickToggle').onclick.call($('quickToggle'));
-  check('tombol bisa menutup lagi', $('quickBox').hidden === true);
+  check('login resmi adalah tombol utama', htmlSrc.indexOf('webLoginBtn') < htmlSrc.indexOf('identifier'));
+  check('form cepat disembunyikan dalam <details>', /<details[^>]*>/.test(htmlSrc) && /form cepat/i.test(htmlSrc));
+  check('status langkah ada di layar login', /id="step1State"/.test(htmlSrc) && /id="step3State"/.test(htmlSrc));
+  check('tombol periksa sesi ada', /id="webLoginCheck"/.test(htmlSrc));
   check('diagnostik terisi', $('diag').textContent.length > 0, 'diag="' + $('diag').textContent + '"');
 
   // ---- login gagal (sandi salah)
@@ -318,6 +318,29 @@ function switchTabForTest(name) {
   $('domStopBtn').click();
   await tick(10);
   check('otomasi: tombol berhenti memanggil native', nativeCalls.some(c => c[0] === 'stopDomClean'));
+
+  // ---- login jelas: status langkah & auto-detect saat kembali dari TikTok
+  // "keluar" dulu supaya benar-benar tanpa sesi
+  $('logoutBtn').click();
+  await tick(10);
+  sandbox.sessionStorage.clear();
+  sandbox.sessionStorage.removeItem('ur_session_v1');
+  sandbox.window.UnrepostNative.hasTiktokSession = () => false;   // belum login
+  sandbox.window.UnrepostResume && sandbox.window.UnrepostResume();
+  check('langkah 1 "menunggu" saat belum login', /menunggu/.test($('step1State').textContent),
+    'step1="' + $('step1State').textContent + '"');
+  check('tombol login resmi ada', typeof $('webLoginBtn').onclick === 'function');
+  // native melaporkan sesi TikTok muncul (pengguna baru selesai login)
+  sandbox.window.UnrepostNative.hasTiktokSession = () => true;
+  sandbox.window.UnrepostNative.tiktokUsername = () => 'akunbaru';
+  sandbox.window.UnrepostResume();
+  await tick(30);
+  check('langkah 1 jadi "selesai"', /sudah login/.test($('step1State').textContent));
+  check('langkah 3 siap dimulai', /siap dimulai/.test($('step3State').textContent));
+  check('auto pindah ke dashboard', $('view-app').hidden === false);
+  check('nama akun terisi otomatis dari sesi TikTok',
+    /akunbaru/.test($('whoName').textContent + $('whoSub').textContent),
+    'whoName="' + $('whoName').textContent + '" whoSub="' + $('whoSub').textContent + '"');
 
   // ---- logout
   $('logoutBtn').click();
