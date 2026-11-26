@@ -44,6 +44,30 @@ Yang diuji otomatis: **99 cek** — termasuk `DomEngine` (20 skenario: grid, men
 kuota, halaman login, menu tanpa aksi) dan `domsnap.js` di **HTML asli via jsdom** (13 cek:
 snapshot, klik tepat satu kali memicu handler halaman, menu, klik koordinat).
 
+## 🔧 v2.5 — perbaikan "sudah login tapi tidak berfungsi"
+
+**Bug fatal yang ditemukan:** snapshot halaman TikTok hanya dikirim **sekali saat halaman selesai
+dimuat**. TikTok adalah aplikasi SPA — pindah tab, buka video, buka menu semuanya terjadi
+**tanpa reload**. Jadi setelah klik pertama, mesin otomasi tidak pernah menerima data baru dan
+berhenti bekerja (macet di "menunggu"). Itu penyebab paling mungkin dari keluhan Anda.
+
+**Perbaikan:**
+
+- `domsnap.js` sekarang mengirim snapshot **otomatis setiap 1,2 detik** bila isi halaman berubah,
+  saat DOM berubah (MutationObserver), saat URL berubah (pushState/popstate).
+- Otomasi menunggu 2,5 detik setelah halaman dibuka agar snapshoter benar-benar terpasang.
+- Panel **KALIBRASI & PERBAIKAN** (tab Bersihkan):
+  1. **Buka profil TikTok saya**
+  2. **Periksa halaman (salin hasil)** — mengembalikan ringkasan: URL, nama tab yang ada,
+     jumlah tautan video, label tombol. Inilah yang dilihat aplikasi, bukan tebakan.
+  3. **Mulai kalibrasi (hanya membaca)** — berjalan tanpa menekan apa pun, log menunjukkan
+     halaman yang dibaca dan langkah yang tidak ditemukan.
+- Saat berhenti, log menyertakan **daftar langkah yang macet** + jumlah snapshot diterima.
+
+**Cara pakai kalau masih gagal (30 detik):** tab Bersihkan → **1. Buka profil TikTok saya** →
+tekan tab **Repost** di halaman itu → kembali ke Unrepost → **2. Periksa halaman (salin hasil)** →
+tempel hasilnya ke chat. Dari data itu label tombol versi TikTok Anda bisa saya masukkan persis.
+
 ## 🔑 v2.4 — layar login diperjelas
 
 Sebelumnya layar login membingungkan (dua cara berdampingan, tanpa status). Sekarang:

@@ -461,7 +461,15 @@ public class WebAppActivity extends Activity implements DomRunner.Host {
                         }
                         activity.openTikTok("https://www.tiktok.com/@" + username
                                 + "?lang=id");
-                        activity.domRunner.start();
+                        // beri waktu halaman dimuat & domsnap disuntikkan sebelum mesin mulai
+                        activity.main.postDelayed(new Runnable() {
+                            @Override
+                            public void run() {
+                                if (activity.domRunner != null) {
+                                    activity.domRunner.start();
+                                }
+                            }
+                        }, 2500L);
                     } catch (Exception e) {
                         activity.toastUi("Gagal memulai: " + e.getClass().getSimpleName());
                     }
@@ -494,6 +502,48 @@ public class WebAppActivity extends Activity implements DomRunner.Host {
             return DomRunner.readUsername(activity);
         }
 
+        /** Buka halaman profil pengguna (untuk kalibrasi / login). */
+        @JavascriptInterface
+        public void openMyProfile() {
+            activity.runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    String u = DomRunner.readUsername(activity);
+                    activity.openTikTok("https://www.tiktok.com/"
+                            + (u.isEmpty() ? "" : "@" + u + "?lang=id"));
+                }
+            });
+        }
+
+        /** Mulai mode kalibrasi: hanya membaca halaman, tidak menekan apa pun. */
+        @JavascriptInterface
+        public void startCalibration() {
+            activity.runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    if (activity.domRunner == null) {
+                        activity.domRunner = new DomRunner(activity, activity, 1, 12000L, true, "");
+                    }
+                    activity.domRunner.setCalibrate(true);
+                    activity.domRunner.start();
+                    activity.toastUi("Kalibrasi: buka Profil → Repost, lalu lihat log");
+                }
+            });
+        }
+
+        @JavascriptInterface
+        public void stopCalibration() {
+            activity.runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    if (activity.domRunner != null) {
+                        activity.domRunner.setCalibrate(false);
+                        activity.domRunner.stop();
+                    }
+                }
+            });
+        }
+
         /** Probe: apakah snapshoter DOM terpasang di halaman TikTok aktif. */
         @JavascriptInterface
         public void probeDom() {
@@ -506,8 +556,9 @@ public class WebAppActivity extends Activity implements DomRunner.Host {
                     activity.domRunner.probe(new ValueCallback<String>() {
                         @Override
                         public void onReceiveValue(String value) {
+                            String v = value == null ? "null" : value;
                             activity.js2("window.UnrepostDomProbe && window.UnrepostDomProbe("
-                                    + jsString(value == null ? "null" : value) + ");");
+                                    + jsString(v) + ");");
                         }
                     });
                 }

@@ -438,6 +438,13 @@
   // Dipanggil native selama otomasi berjalan
   window.UnrepostDomLog = function (line) { domLog(line); };
   window.UnrepostDomProgress = function (text, note, deleted, finished, aborted) {
+    if (text === 'KALIBRASI') {
+      $('domNote').textContent = note || '';
+      if (!$('domCalibState').hidden) {
+        $('domCalibState').textContent = 'kalibrasi: ' + (note || '…');
+      }
+      return;
+    }
     dom.deleted = deleted;
     $('domProgressWrap').hidden = false;
     $('domProgressText').textContent = aborted ? 'berhenti' : (finished ? 'selesai' : 'berjalan…');
@@ -820,6 +827,31 @@
         native.probeDom();
       } else {
         toast('Hanya tersedia di dalam aplikasi');
+      }
+    };
+    $('domOpenProfile').onclick = function () {
+      if (native && native.openMyProfile) {
+        native.openMyProfile();
+        toast('Membuka profil TikTok…');
+      } else {
+        toast('Hanya tersedia di dalam aplikasi');
+      }
+    };
+    $('domCalib').onclick = function () {
+      if (!native || !native.startCalibration) { toast('Hanya tersedia di dalam aplikasi'); return; }
+      var on = $('domCalib').dataset.on === '1';
+      if (on) {
+        native.stopCalibration();
+        $('domCalib').dataset.on = '0';
+        $('domCalib').textContent = '3. Mulai kalibrasi (hanya membaca)';
+        $('domCalibState').hidden = true;
+        domLog('kalibrasi dihentikan');
+      } else {
+        native.startCalibration();
+        $('domCalib').dataset.on = '1';
+        $('domCalib').textContent = 'Stop kalibrasi';
+        $('domCalibState').hidden = false;
+        domLog('kalibrasi dimulai — tidak ada tombol yang ditekan');
       }
     };
     $('domRelogin').onclick = function () { openTikTok(WEB_LOGIN_URL); };

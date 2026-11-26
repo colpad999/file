@@ -102,5 +102,26 @@ function makePage(html) {
   check('back tidak error', w.UnrepostSnap.back() === 'ok');
 }
 
-console.log('\n=== ' + pass + ' lulus, ' + fail + ' gagal ===');
-process.exit(fail ? 1 : 0);
+// ---------------------------------------------------------------- 5) SPA: snapshot berkala
+(async () => {
+  const { w, snaps } = makePage(`<!doctype html><html><body>
+    <div id="app">Halaman awal</div></body></html>`);
+  w.UnrepostSnap.snapNow();
+  const before = snaps.length;
+  // simulasikan SPA: konten berubah tanpa reload (TikTok pindah tab)
+  await new Promise(r => setTimeout(r, 60));
+  w.document.getElementById('app').textContent = 'TAB REPOST: banyak video';
+  await new Promise(r => setTimeout(r, 1800));   // tunggu interval 1200ms
+  const after = snaps.length;
+  check('SPA: snapshot terkirim ulang setelah konten berubah', after > before,
+    before + ' -> ' + after);
+  check('SPA: snapshot terbaru memuat konten baru',
+    snaps[snaps.length - 1].html.includes('TAB REPOST'));
+  check('summary() melaporkan ringkasan halaman', (() => {
+    const s = JSON.parse(w.UnrepostSnap.summary());
+    return typeof s.videos === 'number' && Array.isArray(s.tabs);
+  })());
+
+  console.log('\n=== ' + pass + ' lulus, ' + fail + ' gagal ===');
+  process.exit(fail ? 1 : 0);
+})();

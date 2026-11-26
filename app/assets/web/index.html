@@ -157,10 +157,15 @@
       </div>
 
       <div class="card">
-        <div class="card-label">BANTU SAYA MEMPERBAIKI</div>
-        <p class="muted small">Kalau proses macet, tekan tombol ini lalu kirim hasilnya ke saya.
-          Isinya: snapshot halaman TikTok + log langkah (tanpa sandi).</p>
-        <button class="secondary" id="domProbe" type="button">Periksa halaman &amp; salin diagnostik</button>
+        <div class="card-label">KALIBRASI &amp; PERBAIKAN</div>
+        <p class="muted small" style="margin-top:0">
+          Kalau tombol otomatis tidak jalan, di sini Anda bisa melihat <b>apa yang dilihat
+          aplikasi</b> di halaman TikTok — lalu kirim ke saya (tanpa sandi).
+        </p>
+        <button class="secondary" id="domOpenProfile" type="button">1. Buka profil TikTok saya</button>
+        <button class="secondary" id="domProbe" type="button">2. Periksa halaman (salin hasil)</button>
+        <button class="secondary" id="domCalib" type="button">3. Mulai kalibrasi (hanya membaca)</button>
+        <div class="check-row small muted" id="domCalibState" hidden>kalibrasi berjalan — buka Profil → Repost</div>
         <pre class="log" id="domProbeOut" hidden></pre>
       </div>
 

@@ -37,6 +37,16 @@
 
   function labelOf(el) {
     var parts = [];
+    // naik ke induk yang bisa diklik untuk mendapatkan label yang lebih jelas
+    try {
+      var up = el;
+      for (var i = 0; i < 3 && up && up.parentElement; i++) {
+        if (up.getAttribute && (up.getAttribute('aria-label') || up.getAttribute('data-e2e'))) break;
+        up = up.parentElement;
+        var al2 = up.getAttribute && (up.getAttribute('aria-label') || up.getAttribute('title'));
+        if (al2) { parts.push(al2); break; }
+      }
+    } catch (e) { /* abaikan */ }
     var al = el.getAttribute && (el.getAttribute('aria-label') || el.getAttribute('title'));
     if (al) parts.push(al);
     var txt = (el.innerText || el.textContent || '').trim().replace(/\s+/g, ' ');
@@ -164,6 +174,49 @@
 
   function docEl() { return document.documentElement; }
 
+  // ---- snapshot otomatis: TikTok adalah SPA, halaman tidak reload saat pindah tab.
+  var lastSig = '';
+  function signature() {
+    try {
+      var t = document.body ? (document.body.innerText || '') : '';
+      return (location.href || '') + '|' + t.length + '|' + (t.slice(0, 120));
+    } catch (e) { return String(Date.now()); }
+  }
+
+  function autoSnap() {
+    try {
+      var sig = signature();
+      if (sig !== lastSig) {
+        lastSig = sig;
+        snap(location.href);
+      }
+    } catch (e) { /* abaikan */ }
+  }
+
+  var INTERVAL = 1200;
+  try {
+    window.setInterval(autoSnap, INTERVAL);
+    if (window.MutationObserver && document.body) {
+      var pend = null;
+      var obs = new MutationObserver(function () {
+        if (pend) return;
+        pend = window.setTimeout(function () { pend = null; autoSnap(); }, 450);
+      });
+      obs.observe(document.body, { childList: true, subtree: true, attributes: true });
+    }
+    // URL berubah (SPA) → snapshot segera
+    ['pushState', 'replaceState'].forEach(function (fn) {
+      var orig = history[fn];
+      if (!orig) return;
+      history[fn] = function () {
+        var r = orig.apply(this, arguments);
+        try { window.setTimeout(autoSnap, 60); } catch (e) {}
+        return r;
+      };
+    });
+    window.addEventListener('popstate', function () { window.setTimeout(autoSnap, 60); });
+  } catch (e) { /* abaikan */ }
+
   window.UnrepostSnap = {
     __v: 3,
     snapNow: function () { snap(); return 'ok'; },
@@ -205,7 +258,33 @@
     back: function () {
       try { history.back(); return 'ok'; } catch (e) { return 'error'; }
     },
-    scroll: function (dy) { return scrollByY(dy); }
+    scroll: function (dy) { return scrollByY(dy); },
+    /** Ringkasan halaman untuk kalibrasi (tidak mengubah apa pun). */
+    summary: function () {
+      try {
+        var tabs = [];
+        var nodes = document.querySelectorAll('[role="tab"], [data-e2e*="tab"]');
+        for (var i = 0; i < nodes.length && i < 12; i++) {
+          tabs.push(((nodes[i].innerText || '').trim() || nodes[i].getAttribute('data-e2e') || '?').slice(0, 24));
+        }
+        var videos = 0;
+        var links = document.querySelectorAll('a[href*="/video/"]');
+        for (var j = 0; j < links.length && j < 500; j++) videos++;
+        var buttons = [];
+        var b = document.querySelectorAll('button, [role="button"]');
+        for (var k = 0; k < b.length && k < 25; k++) {
+          var txt = (b[k].getAttribute('aria-label') || b[k].innerText || '').trim();
+          if (txt) buttons.push(txt.slice(0, 20));
+        }
+        return JSON.stringify({
+          url: location.href,
+          tabs: tabs,
+          videos: videos,
+          buttons: buttons,
+          title: document.title
+        });
+      } catch (e) { return JSON.stringify({ error: e.message }); }
+    }
   };
 
   function clickEl(el) {

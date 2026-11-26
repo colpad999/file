@@ -55,6 +55,11 @@ public final class DomRunner {
     private volatile String lastHtml = "";
     private volatile String lastUrl = "";
     private volatile long lastSnapAt;
+    private volatile int snapCount;
+    /** Mode kalibrasi: jangan menekan apa pun, hanya laporkan apa yang terlihat. */
+    private volatile boolean calibrate;
+    /** Label/aksi yang tidak ditemukan (untuk diagnosa). */
+    private final java.util.List<String> missing = new java.util.ArrayList<>();
     private boolean ticking;
     private boolean stopped;
     private int killSwitch = 0;
@@ -69,6 +74,32 @@ public final class DomRunner {
 
     public DomEngine engine() {
         return engine;
+    }
+
+    public void setCalibrate(boolean on) {
+        calibrate = on;
+    }
+
+    public int snapCount() {
+        return snapCount;
+    }
+
+    public String missingReport() {
+        synchronized (missing) {
+            StringBuilder sb = new StringBuilder();
+            for (String m : missing) {
+                sb.append(m).append("\n");
+            }
+            return sb.toString();
+        }
+    }
+
+    private void noteMissing(String what) {
+        synchronized (missing) {
+            if (missing.size() < 40 && !missing.contains(what)) {
+                missing.add(what);
+            }
+        }
     }
 
     // --------------------------------------------------------------- jembatan
@@ -86,6 +117,7 @@ public final class DomRunner {
                 lastHtml = o.optString("html", "");
                 lastUrl = o.optString("url", "");
                 lastSnapAt = System.currentTimeMillis();
+                snapCount++;
             } catch (Exception e) {
                 Log.w(TAG, "snap tidak valid", e);
             }
@@ -162,12 +194,24 @@ public final class DomRunner {
 
     private void tick() {
         long now = System.currentTimeMillis();
+        if (calibrate) {
+            // hanya melaporkan keadaan halaman, tidak menekan apa pun
+            host.onProgress("KALIBRASI", "snapshot ke-" + snapCount + " · " + shortUrl(lastUrl),
+                    engine.deleted(), false, false);
+            if (snapCount == 0) {
+                js("window.UnrepostSnap && window.UnrepostSnap.snapNow()");
+            }
+            return;
+        }
         boolean fresh = now - lastSnapAt < 4000;
         DomEngine.Decision d = engine.onTick(fresh ? lastHtml : "", lastUrl, now, host.isLoading());
 
         host.onProgress(engine.progressText(), engine.note(), engine.deleted(), false, false);
-        if (!d.note.equals(engine.note())) {
-            // catatan baru
+        if (d.action == DomEngine.Action.WAIT && d.note != null) {
+            noteMissing("menunggu: " + d.note);
+        }
+        if (d.action == DomEngine.Action.ABORT && d.note != null) {
+            noteMissing("gagal: " + d.note);
         }
 
         switch (d.action) {
@@ -230,12 +274,22 @@ public final class DomRunner {
         }
         host.onProgress(engine.progressText(), engine.note(), engine.deleted(), !aborted, aborted);
         log(aborted ? "berhenti: " + engine.note() : "selesai: " + engine.deleted() + " repost");
+        String miss = missingReport();
+        if (!miss.isEmpty()) {
+            log("rincian macet:\n" + miss);
+        }
+        log("snapshot diterima: " + snapCount);
     }
 
     private void fail(String why) {
         stopped = true;
         host.onProgress(engine.progressText(), why, engine.deleted(), false, true);
         log("gagal: " + why);
+    }
+
+    private static String shortUrl(String url) {
+        if (url == null) return "?";
+        return url.length() > 60 ? url.substring(0, 57) + "…" : url;
     }
 
     /** Jalankan JS dengan pengaman (WebView bisa hilang kapan saja). */
@@ -259,8 +313,12 @@ public final class DomRunner {
     /** Uji koneksi: apakah jembatan sudah terpasang di halaman aktif. */
     public void probe(ValueCallback<String> cb) {
         try {
-            host.runJs("(function(){try{return window.UnrepostSnap ? "
-                    + "'ok:' + window.UnrepostSnap.info() : 'tanpa-snap';}catch(e){return 'err:'+e.message}})()", cb);
+            host.runJs("(function(){try{"
+                    + "if(!window.UnrepostSnap) return 'tanpa-snap';"
+                    + "window.UnrepostSnap.snapNow();"
+                    + "return 'info=' + window.UnrepostSnap.info() + '\\n---\\n'"
+                    + " + window.UnrepostSnap.summary();"
+                    + "}catch(e){return 'err:'+e.message}})()", cb);
         } catch (Exception e) {
             if (cb != null) {
                 cb.onReceiveValue("err:" + e.getClass().getSimpleName());

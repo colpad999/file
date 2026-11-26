@@ -20,6 +20,7 @@ public final class DomEngineTest {
         abortsWhenNotLoggedIn();
         recoversWhenMenuHasNoRemoveAction();
         dryRunStillWalksThrough();
+        spaTabsKeepWorking();
 
         System.out.println("\n=== " + pass + " lulus, " + fail + " gagal ===");
         if (fail > 0) {
@@ -178,6 +179,24 @@ public final class DomEngineTest {
         tick(e, videoPage(), "u", false);
         check("latihan: tetap mencatat langkah", e.deleted() == 1 && e.logLines().size() > 3,
                 "deleted=" + e.deleted() + " log=" + e.logLines().size());
+    }
+
+    /** TikTok SPA: setelah klik tab, DOM berganti tanpa reload — mesin harus lanjut. */
+    private static void spaTabsKeepWorking() {
+        DomEngine e = new DomEngine(2, 2000, false);
+        e.setUsername("aku");
+        tick(e, gridPage(), "https://www.tiktok.com/@aku", false); wait(e);
+        DomEngine.Decision d = tick(e, gridPage(), "https://www.tiktok.com/@aku", false);
+        check("spa: tab repost diklik", d.action == DomEngine.Action.TAP_NODE, String.valueOf(d));
+        wait(e);
+        // konten berubah (tanpa reload) → snapshot baru
+        String repostTab = "<html><body><div role=\"tablist\">"
+                + "<span role=\"tab\">Video</span>"
+                + "<span role=\"tab\" aria-selected=\"true\" data-ur=\"10\">Repost</span></div>"
+                + "<a data-ur=\"20\" href=\"/@aku/video/9\"><img alt=\"x\"></a></body></html>";
+        d = tick(e, repostTab, "https://www.tiktok.com/@aku", false);
+        check("spa: lanjut ke video setelah DOM berganti",
+                d.action == DomEngine.Action.TAP_NODE && "20".equals(d.sel), String.valueOf(d));
     }
 
     // ------------------------------------------------------------------ util
