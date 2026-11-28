@@ -461,6 +461,14 @@
       saveDomRun(aborted ? 'aborted' : 'done');
     }
   };
+  window.UnrepostUsername = function (value) {
+    if (!value) { domLog('nama akun tidak terdeteksi dari halaman profil'); return; }
+    saveSession({ username: value, nickname: (session && session.nickname) || '', ts: Date.now() });
+    refreshSessionCard();
+    domLog('nama akun terdeteksi: @' + value);
+    renderLoginSteps();
+  };
+
   window.UnrepostDomProbe = function (value) {
     var out = $('domProbeOut');
     out.hidden = false;
@@ -529,13 +537,30 @@
       toast('Otomasi hanya tersedia di dalam aplikasi');
       return;
     }
+    // Nama akun tidak wajib: dulu ketiadaannya membuat URL "tiktok.com/@" yang
+    // dilempar TikTok ke halaman login. Sekarang nama dideteksi otomatis.
     var username = (session && session.username) || '';
+    if (!username && native.hasUsername) {
+      try { username = native.tiktokUsername() || ''; } catch (e) { username = ''; }
+    }
     if (!username) {
-      // coba ambil dari cookie/sesi native; kalau tidak ada, minta login
-      toast('Login TikTok dulu');
-      openTikTok(WEB_LOGIN_URL);
+      domLog('nama akun belum diketahui — mendeteksi otomatis…');
+      toast('Mendeteksi nama akun TikTok…');
+      if (native.detectUsername) native.detectUsername();
+      // beri kesempatan deteksi selesai, lalu mulai
+      setTimeout(function () {
+        var u2 = '';
+        try { u2 = (native.tiktokUsername && native.tiktokUsername()) || ''; } catch (e) { u2 = ''; }
+        if (u2) { saveSession({ username: u2, nickname: '', ts: Date.now() }); }
+        beginDom(u2);
+      }, 4500);
       return;
     }
+    beginDom(username);
+  }
+
+  function beginDom(username) {
+    if (dom.running) return;
     dom.running = true;
     dom.deleted = 0;
     dom.target = dom.batch;

@@ -6,8 +6,8 @@ android {
         applicationId "com.unrepost.app"
         minSdk 24
         targetSdk 34
-        versionCode 8
-        versionName "2.5"
+        versionCode 9
+        versionName "2.6"
     }
 
     // Struktur folder asli proyek (dipakai juga oleh tools/build-apk.sh).

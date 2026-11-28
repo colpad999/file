@@ -145,7 +145,13 @@ public final class DomEngine {
 
     /** URL halaman repost milik sendiri. */
     public static String repostUrl(String username) {
-        return "https://www.tiktok.com/@" + (username == null ? "" : username) + "?lang=id";
+        String u = username == null ? "" : username.trim().replace("@", "");
+        if (u.isEmpty()) {
+            // JANGAN pernah membuat "https://www.tiktok.com/@" — TikTok mengalihkannya
+            // ke halaman login (inilah yang membuat pengguna "dilempar" ke login).
+            return "";
+        }
+        return "https://www.tiktok.com/@" + u + "?lang=id";
     }
 
     /**
@@ -176,11 +182,22 @@ public final class DomEngine {
         }
 
         switch (step) {
-            case START:
+            case START: {
+                String target = repostUrl(username);
                 log("halaman terbuka: " + shortUrl(url));
                 step = Step.OPEN_REPOSTS;
                 nextAt = now + 2500;
-                return new Decision(Action.OPEN_REPOSTS, repostUrl(username), "buka halaman repost");
+                if (target.isEmpty()) {
+                    // username belum diketahui: pakai halaman yang sedang terbuka
+                    log("nama akun belum diketahui — memakai halaman profil yang terbuka");
+                    return new Decision(Action.WAIT, null, "pakai halaman yang terbuka");
+                }
+                if (url != null && url.contains("/@" + username)) {
+                    // sudah di profil yang benar: jangan reload (bikin TikTok balik ke login)
+                    return new Decision(Action.WAIT, null, "sudah di profil");
+                }
+                return new Decision(Action.OPEN_REPOSTS, target, "buka halaman repost");
+            }
 
             case OPEN_REPOSTS: {
                 if (isLoginPage(nodes)) {
@@ -397,9 +414,15 @@ public final class DomEngine {
         public final String href;
         public final String text;
         public final int depth;
+        public final String type;
 
         Node(String tag, String ur, String e2e, String aria, String role, String href,
              String text, int depth) {
+            this(tag, ur, e2e, aria, role, href, text, depth, null);
+        }
+
+        Node(String tag, String ur, String e2e, String aria, String role, String href,
+             String text, int depth, String type) {
             this.tag = tag;
             this.ur = ur;
             this.e2e = e2e;
@@ -408,6 +431,7 @@ public final class DomEngine {
             this.href = href;
             this.text = text;
             this.depth = depth;
+            this.type = type;
         }
 
         @Override
@@ -456,7 +480,7 @@ public final class DomEngine {
             text = text.replaceAll("<[^>]*>", " ").replaceAll("\\s+", " ").trim();
             String ur = attrs.get("data-ur");
             out.add(new Node(tag, ur, attrs.get("data-e2e"), attrs.get("aria-label"),
-                    attrs.get("role"), attrs.get("href"), text, depth));
+                    attrs.get("role"), attrs.get("href"), text, depth, attrs.get("type")));
             depth++;
         }
         return out;
@@ -506,18 +530,18 @@ public final class DomEngine {
         return findByText(nodes, CONFIRM_TEXTS);
     }
 
+    /**
+     * Halaman login hanya dikenali bila ada <b>kolom sandi</b> (atau tombol
+     * "Masuk" pada form). Teks "masuk" saja tidak cukup — banyak elemen TikTok
+     * memakai kata itu dan dulu membuat aplikasi salah tuduh "belum login".
+     */
     private static boolean isLoginPage(List<Node> nodes) {
-        boolean password = false;
         for (Node n : nodes) {
-            if ("input".equals(n.tag) && "password".equals(n.e2e)) {
-                password = true;
-            }
-            if (n.text != null && LOGIN_HINT.matcher(n.text).find()
-                    && n.text.length() < 40 && n.text.toLowerCase(Locale.ROOT).contains("masuk")) {
-                password = true;
+            if ("input".equals(n.tag) && "password".equalsIgnoreCase(n.type)) {
+                return true;
             }
         }
-        return password;
+        return false;
     }
 
     private static boolean hasVideoPlayer(String html) {

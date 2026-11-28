@@ -209,6 +209,11 @@ public class WebAppActivity extends Activity implements DomRunner.Host {
                     DomRunner.noteUrl(url);
                     // setelah login selesai, UI situs langsung tahu
                     js2("window.UnrepostResume && window.UnrepostResume();");
+                    String u = DomRunner.readUsername(WebAppActivity.this);
+                    if (!u.isEmpty()) {
+                        js2("window.UnrepostUsername && window.UnrepostUsername("
+                                + jsString(u) + ");");
+                    }
                     // suntikkan snapshoter DOM setiap halaman TikTok selesai dimuat
                     try {
                         view.evaluateJavascript(DomRunner.bootstrapScript(WebAppActivity.this), null);
@@ -459,8 +464,13 @@ public class WebAppActivity extends Activity implements DomRunner.Host {
                             activity.tiktokWeb.addJavascriptInterface(
                                     activity.domRunner.new Bridge(), "UnrepostDom");
                         }
-                        activity.openTikTok("https://www.tiktok.com/@" + username
-                                + "?lang=id");
+                        String target = DomEngine.repostUrl(username);
+                        if (target.isEmpty()) {
+                            // nama akun belum ada: buka TikTok biasa (bukan URL rusak /@)
+                            activity.openTikTok("https://www.tiktok.com/");
+                        } else {
+                            activity.openTikTok(target);
+                        }
                         // beri waktu halaman dimuat & domsnap disuntikkan sebelum mesin mulai
                         activity.main.postDelayed(new Runnable() {
                             @Override
@@ -500,6 +510,45 @@ public class WebAppActivity extends Activity implements DomRunner.Host {
         @JavascriptInterface
         public String tiktokUsername() {
             return DomRunner.readUsername(activity);
+        }
+
+        /** Kirim nama akun terbaru ke situs (dipanggil setelah deteksi). */
+        private void pushUsername() {
+            String u = DomRunner.readUsername(activity);
+            activity.js2("window.UnrepostUsername && window.UnrepostUsername("
+                    + jsString(u) + ");");
+        }
+
+        /** Apakah nama akun sudah diketahui (tanpa membuka apa pun). */
+        @JavascriptInterface
+        public boolean hasUsername() {
+            return !DomRunner.readUsername(activity).isEmpty();
+        }
+
+        /**
+         * Deteksi nama akun dengan membuka halaman profil sendiri (TikTok SPA),
+         * lalu baca dari URL. Hasil dikirim balik lewat UnrepostUsername.
+         */
+        @JavascriptInterface
+        public void detectUsername() {
+            activity.runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    activity.openTikTok("https://www.tiktok.com/profile");
+                    activity.main.postDelayed(new Runnable() {
+                        @Override
+                        public void run() {
+                            pushUsername();
+                        }
+                    }, 4000L);
+                    activity.main.postDelayed(new Runnable() {
+                        @Override
+                        public void run() {
+                            pushUsername();
+                        }
+                    }, 8000L);
+                }
+            });
         }
 
         /** Buka halaman profil pengguna (untuk kalibrasi / login). */

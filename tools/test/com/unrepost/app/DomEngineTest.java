@@ -21,6 +21,7 @@ public final class DomEngineTest {
         recoversWhenMenuHasNoRemoveAction();
         dryRunStillWalksThrough();
         spaTabsKeepWorking();
+        emptyUsernameNeverBuildsBadUrl();
 
         System.out.println("\n=== " + pass + " lulus, " + fail + " gagal ===");
         if (fail > 0) {
@@ -77,9 +78,16 @@ public final class DomEngineTest {
         DomEngine e = new DomEngine(3, 2000, false);
         e.setUsername("akunku");
 
-        DomEngine.Decision d = tick(e, gridPage(), "https://www.tiktok.com/@akunku", false);
+        // halaman awal: halaman TikTok lain (bukan profil) → harus membuka profil
+        DomEngine.Decision d = tick(e, gridPage(), "https://www.tiktok.com/foryou", false);
         check("start: buka halaman repost", d.action == DomEngine.Action.OPEN_REPOSTS
                 && d.sel.contains("@akunku"), String.valueOf(d));
+        // sudah di profil sendiri → jangan reload (menghindari dilempar ke login)
+        DomEngine e2 = new DomEngine(3, 2000, false);
+        e2.setUsername("akunku");
+        DomEngine.Decision d2 = tick(e2, gridPage(), "https://www.tiktok.com/@akunku", false);
+        check("start: tidak reload bila sudah di profil", d2.action == DomEngine.Action.WAIT,
+                String.valueOf(d2));
 
         d = tick(e, gridPage(), "https://www.tiktok.com/@akunku", false);
         check("grid: ketuk tab Repost", d.action == DomEngine.Action.TAP_NODE && "10".equals(d.sel),
@@ -182,6 +190,28 @@ public final class DomEngineTest {
     }
 
     /** TikTok SPA: setelah klik tab, DOM berganti tanpa reload — mesin harus lanjut. */
+    /** Tanpa nama akun, mesin tidak boleh membuat URL "https://www.tiktok.com/@" (dilempar ke login). */
+    private static void emptyUsernameNeverBuildsBadUrl() {
+        check("url profil: username kosong -> kosong", DomEngine.repostUrl("").isEmpty());
+        check("url profil: '@' saja -> kosong", DomEngine.repostUrl("@").isEmpty());
+        check("url profil: null -> kosong", DomEngine.repostUrl(null).isEmpty());
+        check("url profil: normal -> benar",
+                "https://www.tiktok.com/@aku?lang=id".equals(DomEngine.repostUrl("@aku")));
+
+        DomEngine e = new DomEngine(2, 2000, false);   // username tidak di-set
+        DomEngine.Decision d = tick(e, gridPage(), "https://www.tiktok.com/@aku", false);
+        check("tanpa username: tidak membuka URL profil, pakai halaman terbuka",
+                d.action == DomEngine.Action.WAIT, String.valueOf(d));
+        // halaman login palsu (ada kolom sandi) harus dikenali
+        String login = "<html><body><form><input type=\"text\" name=\"username\">"
+                + "<input type=\"password\" name=\"password\"><button>Masuk</button></form></body></html>";
+        DomEngine e3 = new DomEngine(2, 2000, false);
+        tick(e3, gridPage(), "u", false);
+        DomEngine.Decision d3 = tick(e3, login, "https://www.tiktok.com/login", false);
+        check("halaman login dikenali dari kolom sandi", d3.action == DomEngine.Action.ABORT,
+                String.valueOf(d3));
+    }
+
     private static void spaTabsKeepWorking() {
         DomEngine e = new DomEngine(2, 2000, false);
         e.setUsername("aku");

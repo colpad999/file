@@ -68,7 +68,7 @@
           node.setAttribute('data-ur', String(++SEQ));
         }
         var attrs = ' data-ur="' + node.getAttribute('data-ur') + '"';
-        ['role', 'aria-label', 'data-e2e', 'type', 'href', 'alt', 'title'].forEach(function (a) {
+        ['role', 'aria-label', 'data-e2e', 'type', 'href', 'alt', 'title', 'name'].forEach(function (a) {
           var v = node.getAttribute && node.getAttribute(a);
           if (v) attrs += ' ' + a + '="' + String(v).replace(/"/g, '&quot;').slice(0, 80) + '"';
         });

@@ -44,6 +44,26 @@ Yang diuji otomatis: **99 cek** — termasuk `DomEngine` (20 skenario: grid, men
 kuota, halaman login, menu tanpa aksi) dan `domsnap.js` di **HTML asli via jsdom** (13 cek:
 snapshot, klik tepat satu kali memicu handler halaman, menu, klik koordinat).
 
+## 🚪 v2.6 — perbaikan "selalu dilempar ke halaman login"
+
+**Akar masalah:** bila nama akun belum terbaca, aplikasi menyusun URL
+`https://www.tiktok.com/@?lang=id` — URL **tanpa nama**, dan TikTok mengalihkannya ke
+halaman login. Jadi setiap kali otomasi dimulai, Anda dibuang ke login meski sesinya valid.
+
+**Perbaikan:**
+
+- `DomEngine.repostUrl()` **tidak pernah** lagi menghasilkan `tiktok.com/@` tanpa nama
+  (mengembalikan string kosong; mesin memakai halaman profil yang sedang terbuka).
+- Jika sudah berada di profil sendiri, mesin **tidak me-reload** halaman (reload = risiko
+  dilempar ke login).
+- Nama akun dideteksi otomatis 3 lapis: URL profil terakhir → cookie TikTok (`uniqueId`) →
+  `detectUsername()` yang membuka halaman profil lalu membaca URL-nya.
+- Kotak login tidak lagi salah terdeteksi: halaman dianggap "login" **hanya jika ada
+  `<input type="password">`**. Sebelumnya kata "masuk" saja sudah dianggap halaman login,
+  sehingga otomasi berhenti dengan pesan "belum login" padahal sudah masuk.
+- Test baru: URL tanpa nama tidak pernah dibuat, halaman login dikenali dari kolom sandi,
+  dan otomasi tanpa username **tidak** membuka halaman login.
+
 ## 🔧 v2.5 — perbaikan "sudah login tapi tidak berfungsi"
 
 **Bug fatal yang ditemukan:** snapshot halaman TikTok hanya dikirim **sekali saat halaman selesai

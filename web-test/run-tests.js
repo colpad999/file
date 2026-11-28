@@ -134,6 +134,10 @@ sandbox.window.UnrepostNative = {
   notify: (t, b) => nativeCalls.push(['notify', t, b]),
   version: () => '2.3',
   hasTiktokSession: () => !!sandbox.sessionStorage.getItem('ur_session_v1'),
+  hasUsername: () => true,
+  tiktokUsername: () => 'akunku',
+  detectUsername: () => nativeCalls.push(['detectUsername']),
+  openMyProfile: () => nativeCalls.push(['openMyProfile']),
   startDomClean: (b, g, d, u) => nativeCalls.push(['startDomClean', b, g, d, u]),
   stopDomClean: () => nativeCalls.push(['stopDomClean']),
   probeDom: () => nativeCalls.push(['probeDom']),
@@ -318,6 +322,20 @@ function switchTabForTest(name) {
   $('domStopBtn').click();
   await tick(10);
   check('otomasi: tombol berhenti memanggil native', nativeCalls.some(c => c[0] === 'stopDomClean'));
+
+  // ---- tanpa nama akun: harus deteksi otomatis, BUKAN membuka halaman login
+  sandbox.window.UnrepostNative.hasUsername = () => false;
+  sandbox.window.UnrepostNative.tiktokUsername = () => '';
+  var loginOpens = nativeCalls.filter(c => c[0] === 'openTikTok' && /login/.test(c[1] || '')).length;
+  $('domStartBtn').disabled = false;
+  $('domStartBtn').click();
+  await tick(50);
+  check('tanpa username: meminta deteksi nama akun', nativeCalls.some(c => c[0] === 'openMyProfile' || c[0] === 'startDomClean'));
+  check('tanpa username: TIDAK membuka halaman login',
+    nativeCalls.filter(c => c[0] === 'openTikTok' && /login/.test(c[1] || '')).length === loginOpens);
+  sandbox.window.UnrepostUsername('akundeteksi');
+  check('nama akun hasil deteksi dipakai', /akundeteksi/.test($('whoName').textContent + $('whoSub').textContent),
+    'whoName="' + $('whoName').textContent + '"');
 
   // ---- login jelas: status langkah & auto-detect saat kembali dari TikTok
   // "keluar" dulu supaya benar-benar tanpa sesi

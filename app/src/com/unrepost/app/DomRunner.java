@@ -340,22 +340,30 @@ public final class DomRunner {
         }
     }
 
-    /** Ambil nama akun dari cookie TikTok ("store-idc" dsb) atau dari URL profil terakhir. */
+    /**
+     * Nama akun TikTok yang login. Urutan sumber (yang paling andal dulu):
+     * 1. URL profil terakhir yang dibuka di WebView
+     * 2. cookie TikTok yang memuat uniqueId (mis. "uniqueId=namaakun" / "tt_uid")
+     * 3. kosong (pemanggil TIDAK boleh membuat URL "@" tanpa nama)
+     */
     public static String readUsername(Context c) {
         try {
-            String cookie = CookieManager.getInstance().getCookie("https://www.tiktok.com");
-            if (cookie != null) {
-                java.util.regex.Matcher m = java.util.regex.Pattern
-                        .compile("(?i)uid_tt=[^;]+").matcher(cookie);
-                // TikTok menyimpan nama akun di cookie "tt_chain_token" tidak selalu;
-                // cara paling andal: halaman profil yang terakhir dibuka.
-                if (m.find()) {
-                    // tidak dipakai untuk nama, hanya memastikan sesi ada
-                }
-            }
             String last = LastProfile.get();
             if (last != null && !last.isEmpty()) {
                 return last;
+            }
+        } catch (Exception ignored) {
+        }
+        try {
+            String cookie = CookieManager.getInstance().getCookie("https://www.tiktok.com");
+            if (cookie != null && !cookie.isEmpty()) {
+                java.util.regex.Matcher m = java.util.regex.Pattern
+                        .compile("(?i)(?:uniqueid|unique_id|tt_uid_name)=([A-Za-z0-9._]+)")
+                        .matcher(cookie);
+                if (m.find()) {
+                    LastProfile.set(m.group(1));
+                    return m.group(1);
+                }
             }
         } catch (Exception ignored) {
         }
